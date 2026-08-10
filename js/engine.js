@@ -18,6 +18,7 @@
  *     keyOf(item)          -> stable string, used for repetition weights
  *     labelOf(item)        -> display name
  *     hardPool(target, s)  -> candidates hard mode prefers as wrong answers
+ *     buildOptions(target, state) -> the four tiles, when they are not the pool
  *     renderPrompt(question, ui)
  *     renderOption(tile, option, index, question)
  *     isCorrect(option, question)
@@ -226,16 +227,21 @@ const GameEngine = (function () {
 
     if (game.layout === 'map-click') return { id: ++questionSeq, target: target };
 
+    return { id: ++questionSeq, target: target, options: buildOptions(target) };
+  }
+
+  /* Normally the tiles are the target plus wrong answers from the same pool. A
+   * game whose answer is not the same kind of thing as the question, like a road
+   * sign answered with a country, builds its own. */
+  function buildOptions(target) {
+    const game = state.game;
+    if (game.buildOptions) return shuffle(game.buildOptions(target, state));
+
     const sources = [];
     if (state.difficulty === 'hard' && game.hardPool) sources.push(game.hardPool(target, state));
-    sources.push(pool);
+    sources.push(game.pool(state));
     if (game.widePool) sources.push(game.widePool(state));
-
-    return {
-      id: ++questionSeq,
-      target: target,
-      options: shuffle([target].concat(pickDistractors(target, sources))),
-    };
+    return shuffle([target].concat(pickDistractors(target, sources)));
   }
 
   /** Swaps one wrong answer for another, used when a game finds an option it cannot draw. */
@@ -283,17 +289,17 @@ const GameEngine = (function () {
   }
 
   function revealTiles(pickedIndex, question) {
-    const targetKey = keyOf(question.target);
     tiles.forEach(function (tile, index) {
+      const right = isCorrectOption(question.options[index], question);
       tile.disabled = true;
       tile.classList.add('revealed');
       if (state.game.revealNames !== false) tile.querySelector('.tile-name').textContent = tile.dataset.name;
 
-      if (tile.dataset.key === targetKey) tile.classList.add('correct');
+      if (right) tile.classList.add('correct');
       else if (index === pickedIndex) tile.classList.add('wrong');
       else tile.classList.add('dimmed');
 
-      if (index === pickedIndex) tile.classList.add('picked', tile.dataset.key === targetKey ? 'correct' : 'wrong');
+      if (index === pickedIndex) tile.classList.add('picked', right ? 'correct' : 'wrong');
     });
   }
 
@@ -324,6 +330,13 @@ const GameEngine = (function () {
     return state.running && !state.locked && Boolean(state.current);
   }
 
+  function isCorrectOption(option, question) {
+    if (!option) return false;
+    return state.game.isCorrect
+      ? state.game.isCorrect(option, question)
+      : keyOf(option) === keyOf(question.target);
+  }
+
   function answer(index) {
     if (!canAnswer() || state.game.layout !== 'tiles') return;
     const question = state.current;
@@ -331,9 +344,7 @@ const GameEngine = (function () {
     if (!option) return;
 
     state.locked = true;
-    const correct = state.game.isCorrect
-      ? state.game.isCorrect(option, question)
-      : keyOf(option) === keyOf(question.target);
+    const correct = isCorrectOption(option, question);
 
     revealTiles(index, question);
     const info = state.game.reveal

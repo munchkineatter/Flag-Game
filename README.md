@@ -1,8 +1,8 @@
 # Geo Trainer
 
-Four practice drills for GeoGuessr, built around the things a round actually asks of you: reading a flag, reading a sign, knowing a shape, and knowing where a place is.
+Five practice drills for GeoGuessr, built around the things a round actually asks of you: reading a flag, reading a sign, recognising a road sign, knowing a shape, and knowing where a place is.
 
-No build step and no dependencies — just open `index.html` in a browser. Flag images come from [flagcdn.com](https://flagcdn.com) and a handful of Noto webfonts come from Google Fonts, so an internet connection is required.
+No build step and no dependencies — just open `index.html` in a browser. Flag images come from [flagcdn.com](https://flagcdn.com), road signs from [Wikimedia Commons](https://commons.wikimedia.org) and a handful of Noto webfonts from Google Fonts, so an internet connection is required.
 
 ## The games
 
@@ -10,6 +10,7 @@ No build step and no dependencies — just open `index.html` in a browser. Flag 
 | --- | --- | --- |
 | **Flags** | A country name and four flags; click the matching one | Flag recognition |
 | **Scripts** | A sign written in some language; name the language | Reading signs and telling look-alike alphabets apart |
+| **Road signs** | A road sign and four countries; pick who uses that design | Sign conventions: triangles against diamonds, ALTO against PARE |
 | **Outlines** | A country silhouette and four names; pick the country | Borders and coastlines |
 | **Locate** | A country name and the whole world; click where it is | Knowing where places actually are |
 
@@ -29,8 +30,8 @@ Everything sits in one screenful, so there is nothing to scroll past while you p
 | Setting | Options | Effect |
 | --- | --- | --- |
 | Mode | Endless, Sprint 60s | Sprint runs a 60 second countdown and then opens the summary. The clock keeps running while you study the map, so time spent there costs you |
-| Difficulty | Easy, Hard | Hard draws the wrong answers from the ones that are genuinely easy to confuse: the target's own region for flags and shapes, and look-alike languages for scripts |
-| Region | All, Africa, Americas, Asia, Europe, Oceania | Limits what is in play. A language counts as belonging to every region it is spoken in, so the Americas keeps Spanish and Brazilian Portuguese |
+| Difficulty | Easy, Hard | Hard draws the wrong answers from the ones that are genuinely easy to confuse: the target's own region for flags, shapes and road signs, and look-alike languages for scripts |
+| Region | All, Africa, Americas, Asia, Europe, Oceania | Limits what is in play. A language or a sign design counts as belonging to every region it is used in, so the Americas keeps Spanish and Brazilian Portuguese, and Europe keeps the yellow diamond that only Ireland uses |
 
 Locate has no difficulty setting: there is nothing to make harder except the map itself. Changing any setting restarts the session.
 
@@ -49,13 +50,16 @@ index.html            markup: menu, stats, settings bar, tile board, map panel, 
 styles.css            dark responsive theme, tiles, sign plate, map states, menu cards
 js/countries.js       197 countries as { name, code, region }, ISO 3166-1 alpha-2 codes
 js/languages.js       73 languages with samples, identifying tells and look-alike sets
+js/roadsigns.js       32 sign designs with the countries that use them and the tells
 js/worldmap.js        generated country outlines, do not edit by hand
 js/mapview.js         the map panel: zoom, highlighting, and the click layer
+js/signart.js         draws a road sign from its shape and colours, for when an image fails
 js/engine.js          sessions, scoring, weighted question picking, timer, persistence
 js/main.js            menu and hash routing
 js/modes/*.js         one file per game
 tools/build-map.mjs   regenerates js/worldmap.js, run manually
 tools/check-data.mjs  checks the hand-written data for typos, run manually
+tools/check-signs.mjs checks the Commons filenames still resolve, run manually
 ```
 
 Scripts are plain `<script src>` tags rather than ES modules so the page works straight from `file://` without a local server.
@@ -86,13 +90,23 @@ GameEngine.register({
 
 Add a `<script src>` for it in `index.html` and it appears on the menu with its own saved progress. `ui.map` is the `MapView` module: `show(countries)` highlights and zooms to one country or many, `enableClicks(handler)` turns the map into an answer surface, and `distanceKm` grades a near miss.
 
+If the answers are not the same kind of thing as the question — Road signs asks about a sign and answers with a country — add `buildOptions(target, state)` to return the four tiles yourself, and `isCorrect(option, question)` to grade them. The engine marks the correct tile with the same test, so a question may have more than one right answer.
+
 Games not built yet, in rough order of how much they would help: top-level domains on signs (.hr, .ge, .lv), which side of the road traffic drives on, capitals, bordering countries, currency and dialling codes, and a mixed drill that rotates through everything.
 
 ## Data
 
-`js/countries.js` and `js/languages.js` are written by hand. `node tools/check-data.mjs` verifies that every country code a language claims exists, that every look-alike id resolves, and that every country has map geometry.
+`js/countries.js`, `js/languages.js` and `js/roadsigns.js` are written by hand. `node tools/check-data.mjs` verifies that every country code a language or a sign claims exists, that every look-alike id resolves, that no sign offers a right answer as a wrong one, and that every country has map geometry.
 
 Language samples are the kind of text that ends up on a street sign, a shopfront or a road marking, because that is all you get to read in a round. Each language also carries the letters and habits that give it away, which is what the game shows you after you answer.
+
+## Road signs
+
+Each entry in `js/roadsigns.js` is one design, listing every country that uses it and a separate `contrast` list the wrong answers come from. Keeping the wrong answers on a list rather than picking them at random is what stops the game asking something unanswerable, like offering both the United States and Australia under a yellow diamond. `node tools/check-data.mjs` fails if the two lists ever overlap.
+
+Signs are fetched from Wikimedia Commons through `Special:FilePath`, which follows the file rather than a hashed URL, so an upload does not break the link. `node tools/check-signs.mjs` confirms every filename still resolves, and `node tools/check-signs.mjs "search term"` looks for a replacement when one does not.
+
+When an image fails to load, `js/signart.js` draws the sign instead from its shape, colours and a short pictogram or word. That is a fair substitute here because the thing the game tests — the outline and the colours — is exactly what it can draw, and each question names in words what the sign means.
 
 `js/worldmap.js` holds every country as an SVG path in an equirectangular projection, 30px per degree, latitude clipped to 84N–58S. Each country also carries the box the map zooms to, measured around its main landmass so overseas territories do not drag the view out to sea. The two countries too small to draw at 1:50m, Tuvalu and Vatican City, are stored as points; the Outlines game skips countries whose shape is too small to be a fair question.
 

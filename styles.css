@@ -78,10 +78,15 @@ body {
   line-height: 1.5;
 }
 
+/* Held to three columns so five games fall 3 + 2 rather than stranding one card
+ * on a row of its own. */
 .menu-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: 16px;
+  width: 100%;
+  max-width: 940px;
+  margin: 0 auto;
 }
 
 .menu-card {
@@ -866,11 +871,20 @@ kbd {
 
 .missed-card-text span,
 .missed-card-outline span,
-.missed-card-language span {
+.missed-card-language span,
+.missed-card-sign span {
   display: block;
   padding: 6px 8px;
   font-size: 0.76rem;
   line-height: 1.25;
+}
+
+.missed-card-sign .missed-sign-art {
+  display: block;
+  width: 100%;
+  height: 64px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .missed-card-outline .outline-thumb {
@@ -949,6 +963,47 @@ kbd {
 
 .sign-tells[hidden] {
   display: none;
+}
+
+/* Road signs. The plate stays light whatever the page theme, because the signs
+ * are drawn for daylight and their colours only read correctly against it. */
+.sign-plate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 560px;
+  min-height: 0;
+  padding: 18px 26px 20px;
+  border-radius: 14px;
+  background: #f3f6fc;
+  border: 5px solid #0c1223;
+  color: #101a30;
+  box-shadow: var(--shadow);
+}
+
+.sign-art-frame {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 0;
+}
+
+.sign-photo,
+.sign-art {
+  display: block;
+  width: auto;
+  height: clamp(140px, 28vh, 250px);
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.sign-art text {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+}
+
+.sign-plate .sign-tells {
+  width: 100%;
 }
 
 /* Scripts a stock desktop font stack tends to miss. The Noto families are loaded
