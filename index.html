@@ -3,16 +3,38 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Flag Game — GeoGuessr flag trainer</title>
+  <title>Geo Trainer — GeoGuessr practice drills</title>
   <link rel="preconnect" href="https://flagcdn.com" crossorigin>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Scripts that stock desktop fonts rarely cover. Everything else falls back to the system stack. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Armenian&family=Noto+Sans+Ethiopic&family=Noto+Sans+Georgian&family=Noto+Sans+Khmer&family=Noto+Sans+Lao&family=Noto+Sans+Myanmar&family=Noto+Sans+Sinhala&family=Noto+Nastaliq+Urdu&display=swap">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app">
+  <!-- Menu -->
+  <div class="screen menu" id="menu">
+    <header class="menu-head">
+      <h1>Geo Trainer</h1>
+      <p>Four drills for the things GeoGuessr actually asks of you: flags, scripts, shapes and where places are.</p>
+    </header>
+
+    <div class="menu-grid" id="menu-grid"></div>
+
+    <footer class="menu-foot">
+      Progress is kept per game in this browser. Press <kbd>Esc</kbd> during a game to come back here.
+    </footer>
+  </div>
+
+  <!-- Game -->
+  <div class="screen app" id="app" hidden>
     <header class="topbar">
       <div class="brand">
-        <h1>Flag Game</h1>
-        <p>Click the flag that belongs to the country</p>
+        <button type="button" class="btn btn-back" id="btn-menu" aria-label="Back to the menu">&#8592;</button>
+        <div>
+          <h1 id="game-title">Game</h1>
+          <p id="game-blurb"></p>
+        </div>
       </div>
       <div class="stats">
         <div class="stat">
@@ -40,14 +62,14 @@
 
     <section class="controls" aria-label="Game settings">
       <div class="control">
-        <span class="control-label" id="label-mode">Mode</span>
-        <div class="segmented" role="group" aria-labelledby="label-mode">
-          <button type="button" class="seg" data-setting="mode" data-value="endless" aria-pressed="true">Endless</button>
-          <button type="button" class="seg" data-setting="mode" data-value="sprint" aria-pressed="false">Sprint 60s</button>
+        <span class="control-label" id="label-pace">Mode</span>
+        <div class="segmented" role="group" aria-labelledby="label-pace">
+          <button type="button" class="seg" data-setting="pace" data-value="endless" aria-pressed="true">Endless</button>
+          <button type="button" class="seg" data-setting="pace" data-value="sprint" aria-pressed="false">Sprint 60s</button>
         </div>
       </div>
 
-      <div class="control">
+      <div class="control" id="control-difficulty">
         <span class="control-label" id="label-difficulty">Difficulty</span>
         <div class="segmented" role="group" aria-labelledby="label-difficulty">
           <button type="button" class="seg" data-setting="difficulty" data-value="easy" aria-pressed="true">Easy</button>
@@ -55,7 +77,7 @@
         </div>
       </div>
 
-      <div class="control">
+      <div class="control" id="control-region">
         <label class="control-label" for="region-select">Region</label>
         <select id="region-select" class="select"></select>
       </div>
@@ -66,30 +88,31 @@
       </div>
     </section>
 
-    <main class="stage">
-      <section class="column column-board" aria-label="Flag choices">
-        <p class="prompt-label">Which flag belongs to</p>
+    <main class="stage" id="stage" data-layout="tiles">
+      <section class="column column-board" aria-label="Question">
+        <p class="prompt-label" id="prompt-label"></p>
         <h2 class="prompt" id="prompt">Loading…</h2>
+        <div class="prompt-media" id="prompt-media" hidden></div>
 
-        <div class="board" id="board">
+        <div class="board" id="board" data-tiles="flag">
           <button type="button" class="tile" data-index="0">
             <span class="tile-key">1</span>
-            <img class="tile-flag" alt="Flag option 1" decoding="async">
+            <span class="tile-body"></span>
             <span class="tile-name"></span>
           </button>
           <button type="button" class="tile" data-index="1">
             <span class="tile-key">2</span>
-            <img class="tile-flag" alt="Flag option 2" decoding="async">
+            <span class="tile-body"></span>
             <span class="tile-name"></span>
           </button>
           <button type="button" class="tile" data-index="2">
             <span class="tile-key">3</span>
-            <img class="tile-flag" alt="Flag option 3" decoding="async">
+            <span class="tile-body"></span>
             <span class="tile-name"></span>
           </button>
           <button type="button" class="tile" data-index="3">
             <span class="tile-key">4</span>
-            <img class="tile-flag" alt="Flag option 4" decoding="async">
+            <span class="tile-body"></span>
             <span class="tile-name"></span>
           </button>
         </div>
@@ -102,8 +125,10 @@
               <g id="map-world">
                 <rect class="map-ocean" id="map-ocean"></rect>
                 <path class="map-land" id="map-land"></path>
+                <path class="map-pick" id="map-pick"></path>
                 <path class="map-country" id="map-country"></path>
-                <circle class="map-pin" id="map-pin" r="0"></circle>
+                <g class="map-pins" id="map-pins"></g>
+                <g class="map-hit" id="map-hit"></g>
               </g>
               <use class="map-copy map-copy-left" id="map-copy-left" href="#map-world"></use>
               <use class="map-copy map-copy-right" id="map-copy-right" href="#map-world"></use>
@@ -114,13 +139,11 @@
 
         <p class="feedback" id="feedback" role="status" aria-live="polite">&nbsp;</p>
 
-        <button type="button" class="btn btn-primary btn-next" id="btn-next" disabled>Next flag</button>
+        <button type="button" class="btn btn-primary btn-next" id="btn-next" disabled>Next</button>
       </section>
     </main>
 
-    <footer class="hint">
-      Press <kbd>1</kbd>–<kbd>4</kbd> to answer, <kbd>Space</kbd> for the next flag. Flags you miss come back more often.
-    </footer>
+    <footer class="hint" id="hint"></footer>
   </div>
 
   <div class="overlay hidden" id="summary" role="dialog" aria-modal="true" aria-labelledby="summary-title">
@@ -141,15 +164,25 @@
         </div>
       </div>
 
-      <h3 class="summary-subtitle" id="missed-title">Flags to review</h3>
+      <h3 class="summary-subtitle" id="missed-title">Worth reviewing</h3>
       <div class="missed" id="missed"></div>
 
-      <button type="button" class="btn btn-primary" id="btn-again">Play again</button>
+      <div class="sheet-actions">
+        <button type="button" class="btn btn-primary" id="btn-again">Play again</button>
+        <button type="button" class="btn" id="btn-summary-menu">Back to menu</button>
+      </div>
     </div>
   </div>
 
   <script src="js/countries.js"></script>
   <script src="js/worldmap.js"></script>
-  <script src="js/game.js"></script>
+  <script src="js/languages.js"></script>
+  <script src="js/mapview.js"></script>
+  <script src="js/engine.js"></script>
+  <script src="js/modes/flags.js"></script>
+  <script src="js/modes/outline.js"></script>
+  <script src="js/modes/locate.js"></script>
+  <script src="js/modes/language.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>

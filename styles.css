@@ -38,6 +38,109 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+.screen[hidden] {
+  display: none;
+}
+
+/* Menu */
+
+.menu {
+  height: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 4px 4px 32px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 26px;
+}
+
+.menu-head {
+  text-align: center;
+}
+
+.menu-head h1 {
+  margin: 0;
+  font-size: clamp(2rem, 5vw, 3rem);
+  letter-spacing: -0.03em;
+  background: linear-gradient(100deg, #ffffff, #9ec5ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.menu-head p {
+  margin: 8px auto 0;
+  max-width: 60ch;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.menu-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 16px;
+}
+
+.menu-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  border-radius: var(--radius);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  text-decoration: none;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.menu-card:hover,
+.menu-card:focus-visible {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+  background: var(--panel-strong);
+}
+
+.menu-kicker {
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: var(--accent);
+}
+
+.menu-card h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+}
+
+.menu-blurb {
+  flex: 1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.menu-stats {
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.menu-foot {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 /* One screenful: header, settings and footer take what they need, the stage takes the rest. */
 .app {
   height: 100%;
@@ -56,6 +159,18 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.btn-back {
+  padding: 6px 13px;
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .brand h1 {
@@ -129,6 +244,11 @@ body {
   display: flex;
   flex-direction: column;
   gap: 5px;
+}
+
+/* Games declare which settings they support, so a control can be missing entirely. */
+.control[hidden] {
+  display: none;
 }
 
 .control-actions {
@@ -277,6 +397,24 @@ body {
   line-height: 1.15;
 }
 
+/* Games whose question is a picture rather than a name leave the heading empty. */
+.prompt:empty {
+  display: none;
+}
+
+/* Where a silhouette or a sign goes, sized to whatever the board leaves over. */
+.prompt-media {
+  min-height: 0;
+  flex: 1 1 auto;
+  display: grid;
+  place-items: center;
+  padding: 4px 0 12px;
+}
+
+.prompt-media[hidden] {
+  display: none;
+}
+
 /* Held near the shape two rows of 3:2 flags want, so tiles are not mostly empty space. */
 .board {
   display: grid;
@@ -289,13 +427,25 @@ body {
   min-height: 0;
 }
 
-/* A proportional name row keeps the flag area at 3:2 whatever size the board ends up. */
+.board[hidden] {
+  display: none;
+}
+
+/* Word tiles need nothing like the height a flag does. */
+.board[data-tiles="text"] {
+  aspect-ratio: 3.4;
+  flex: 0 0 auto;
+}
+
 .tile {
   position: relative;
   display: grid;
-  grid-template-rows: minmax(0, 1fr) 17%;
+  grid-template-rows: minmax(0, 1fr) auto;
   min-height: 0;
   padding: 0;
+  /* Stated outright: tiles are disabled once answered, and the browser would
+   * otherwise grey their text out to the point of being unreadable. */
+  color: var(--text);
   border: 2px solid var(--border);
   border-radius: var(--radius);
   background: rgba(255, 255, 255, 0.04);
@@ -303,6 +453,26 @@ body {
   cursor: pointer;
   box-shadow: var(--shadow);
   transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+/* A proportional name row keeps the flag area at 3:2 whatever size the board ends up. */
+.board[data-tiles="flag"] .tile {
+  grid-template-rows: minmax(0, 1fr) 17%;
+}
+
+.tile-body {
+  display: grid;
+  place-items: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tile-text {
+  padding: 8px 14px;
+  text-align: center;
+  line-height: 1.2;
+  font-size: clamp(0.85rem, 1.25vw, 1.05rem);
+  font-weight: 600;
 }
 
 .tile:hover:not(:disabled) {
@@ -357,6 +527,11 @@ body {
   background: rgba(0, 0, 0, 0.3);
   opacity: 0;
   transition: opacity 0.2s ease;
+}
+
+/* Games whose tiles already carry the name leave this row out altogether. */
+.board[data-tiles="text"] .tile-name:empty {
+  display: none;
 }
 
 .tile.revealed .tile-name {
@@ -429,7 +604,7 @@ body {
 }
 
 .btn-next {
-  justify-self: center;
+  align-self: center;
   width: 100%;
   max-width: 320px;
 }
@@ -504,10 +679,59 @@ body {
   vector-effect: non-scaling-stroke;
 }
 
+/* Where the player clicked, when that was not where the country is. */
+.map-pick {
+  fill: rgba(255, 107, 107, 0.5);
+  stroke: var(--bad);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  opacity: 0;
+  transition: opacity 300ms ease 250ms;
+}
+
+.map.has-pick .map-pick {
+  opacity: 1;
+}
+
+/* One invisible shape per country, so a click on the map resolves to a country.
+ * Only built and only shown for games that ask you to click. */
+.map-hit {
+  display: none;
+}
+
+.map.clickable .map-hit {
+  display: inline;
+}
+
+.map.clickable {
+  cursor: crosshair;
+}
+
+.map-hit path,
+.map-hit circle {
+  fill: transparent;
+  pointer-events: fill;
+}
+
+.map.clickable .map-hit path:hover,
+.map.clickable .map-hit circle:hover {
+  fill: rgba(110, 168, 254, 0.32);
+}
+
+/* Answered, or between sessions: the map goes back to being a picture. */
+.map.locked .map-hit {
+  pointer-events: none;
+}
+
+.map.locked.clickable {
+  cursor: default;
+}
+
 /* Second and third copies of the world, so views across the date line stay whole.
  * Each side is shown on its own, since drawing the world again is not cheap. */
 .map-copy {
   display: none;
+  pointer-events: none;
 }
 
 .map.wrap-left .map-copy-left,
@@ -640,6 +864,197 @@ kbd {
   padding: 16px 0;
 }
 
+.missed-card-text span,
+.missed-card-outline span,
+.missed-card-language span {
+  display: block;
+  padding: 6px 8px;
+  font-size: 0.76rem;
+  line-height: 1.25;
+}
+
+.missed-card-outline .outline-thumb {
+  display: block;
+  width: 100%;
+  height: 62px;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.missed-card-language .missed-sample {
+  display: block;
+  padding: 10px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text);
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.sheet-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Outlines */
+
+.outline-shape {
+  width: 100%;
+  height: 100%;
+  max-height: 46dvh;
+}
+
+.outline-shape path {
+  fill: #dbe6ff;
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.outline-thumb path {
+  fill: #dbe6ff;
+}
+
+/* Signs */
+
+/* Read as a real sign would be: dark text on a bright plate, not another dark panel. */
+.sign {
+  width: 100%;
+  max-width: 640px;
+  padding: 22px 26px;
+  border-radius: 14px;
+  background: #f3f6fc;
+  border: 5px solid #0c1223;
+  color: #101a30;
+  box-shadow: var(--shadow);
+}
+
+.sign-text {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(1.35rem, 3vw, 2.4rem);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.sign-tells {
+  margin: 16px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid rgba(16, 26, 48, 0.18);
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: #3d4a68;
+}
+
+.sign-tells[hidden] {
+  display: none;
+}
+
+/* Scripts a stock desktop font stack tends to miss. The Noto families are loaded
+ * from Google Fonts in index.html; the system names cover the offline case. */
+[data-script="arabic"] {
+  font-family: "Segoe UI", "Geeza Pro", Tahoma, Arial, sans-serif;
+}
+
+[data-script="nastaliq"] {
+  font-family: "Noto Nastaliq Urdu", "Urdu Typesetting", "Segoe UI", Tahoma, serif;
+  line-height: 2.1;
+}
+
+[data-script="hebrew"] {
+  font-family: "Segoe UI", "Arial Hebrew", Arial, sans-serif;
+}
+
+[data-script="devanagari"],
+[data-script="bengali"],
+[data-script="tamil"] {
+  font-family: "Nirmala UI", "Kohinoor Devanagari", "Noto Sans", sans-serif;
+}
+
+[data-script="sinhala"] {
+  font-family: "Noto Sans Sinhala", "Nirmala UI", "Iskoola Pota", sans-serif;
+}
+
+[data-script="thai"] {
+  font-family: "Leelawadee UI", "Noto Sans Thai", "Thonburi", Tahoma, sans-serif;
+}
+
+[data-script="lao"] {
+  font-family: "Noto Sans Lao", "Leelawadee UI", "Lao UI", sans-serif;
+}
+
+[data-script="khmer"] {
+  font-family: "Noto Sans Khmer", "Khmer UI", "Leelawadee UI", sans-serif;
+}
+
+[data-script="myanmar"] {
+  font-family: "Noto Sans Myanmar", "Myanmar Text", sans-serif;
+}
+
+[data-script="ethiopic"] {
+  font-family: "Noto Sans Ethiopic", "Nyala", "Kefa", sans-serif;
+}
+
+[data-script="armenian"] {
+  font-family: "Noto Sans Armenian", "Sylfaen", "Mshtakan", sans-serif;
+}
+
+[data-script="georgian"] {
+  font-family: "Noto Sans Georgian", "Sylfaen", sans-serif;
+}
+
+/* Han characters are shared but drawn differently per language, so each one
+ * names its own font rather than falling through to whatever is installed. */
+[data-script="japanese"] {
+  font-family: "Yu Gothic UI", "Meiryo", "Hiragino Sans", "MS Gothic", sans-serif;
+}
+
+[data-script="korean"] {
+  font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Nanum Gothic", sans-serif;
+}
+
+[data-script="chinese"] {
+  font-family: "Microsoft YaHei", "PingFang SC", "SimSun", sans-serif;
+}
+
+[data-script="chinese-trad"] {
+  font-family: "Microsoft JhengHei", "PingFang TC", "PMingLiU", sans-serif;
+}
+
+/* Click-the-map layout */
+
+/* One column, with the prompt above a map that takes everything left over. */
+.stage[data-layout="map-click"] {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  gap: 6px;
+}
+
+.stage[data-layout="map-click"] .column-board {
+  display: contents;
+}
+
+.stage[data-layout="map-click"] .column-map {
+  min-height: 0;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.stage[data-layout="map-click"] .map {
+  flex: 1 1 auto;
+}
+
+.stage[data-layout="map-click"] .map-svg {
+  aspect-ratio: auto;
+  width: 100%;
+  height: 100%;
+}
+
+.stage[data-layout="map-click"] .feedback {
+  min-height: 28px;
+}
+
 /* Too narrow or too short for one screenful: stack and let the page scroll. */
 @media (max-width: 900px), (max-height: 540px) {
   html,
@@ -656,11 +1071,14 @@ kbd {
     height: auto;
   }
 
-  .stage {
+  .stage,
+  .stage[data-layout="map-click"] {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: none;
   }
 
-  .map-svg {
+  .map-svg,
+  .stage[data-layout="map-click"] .map-svg {
     height: auto;
     aspect-ratio: var(--map-aspect, 5 / 2);
   }
