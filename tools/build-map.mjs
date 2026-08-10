@@ -18,6 +18,14 @@ const LAT_BOTTOM = -58;
 /** Rings smaller than this (in px²) are dropped, unless a country has nothing else. */
 const MIN_RING_AREA = 6;
 
+/* Two levels of detail. Natural Earth carries far more precision than a map panel can
+ * show, and redrawing all of it on every frame of a zoom is what makes the animation
+ * stutter. SHAPE_TOLERANCE is the most the panel can resolve at full zoom, so it costs
+ * nothing visible. BACKDROP_TOLERANCE is a much cheaper world outline, used while the
+ * view is wide enough that the difference lands inside a single pixel. */
+const SHAPE_TOLERANCE = 0.4;
+const BACKDROP_TOLERANCE = 3;
+
 /** Outlying rings further than this from the main landmass are left out of the zoom box. */
 const CLUSTER_GAP = 30 * PX_PER_DEG;
 
@@ -120,6 +128,80 @@ function projectCountry(rings) {
   return unwrapped
     .map((ring) => project(ring, -360 * Math.round((meanLon(ring) - anchor) / 360)))
     .filter((ring) => ring.length >= 3);
+}
+
+/* ---------- simplification ---------- */
+
+function segmentDistSq(point, start, end) {
+  let x = start[0];
+  let y = start[1];
+  let dx = end[0] - x;
+  let dy = end[1] - y;
+  if (dx || dy) {
+    const t = ((point[0] - x) * dx + (point[1] - y) * dy) / (dx * dx + dy * dy);
+    if (t > 1) {
+      x = end[0];
+      y = end[1];
+    } else if (t > 0) {
+      x += dx * t;
+      y += dy * t;
+    }
+  }
+  dx = point[0] - x;
+  dy = point[1] - y;
+  return dx * dx + dy * dy;
+}
+
+/** Douglas-Peucker, kept iterative so a long coastline cannot overflow the stack. */
+function simplifyRing(ring, tolerance) {
+  if (ring.length <= 4) return ring;
+
+  // A closed ring needs a second anchor opposite the first, or the whole loop
+  // collapses onto the line between one point and itself.
+  let far = 1;
+  let farDist = -1;
+  for (let i = 1; i < ring.length; i++) {
+    const dx = ring[i][0] - ring[0][0];
+    const dy = ring[i][1] - ring[0][1];
+    const dist = dx * dx + dy * dy;
+    if (dist > farDist) {
+      farDist = dist;
+      far = i;
+    }
+  }
+
+  const keep = new Uint8Array(ring.length);
+  keep[0] = 1;
+  keep[far] = 1;
+  keep[ring.length - 1] = 1;
+
+  const tolSq = tolerance * tolerance;
+  const spans = [[0, far], [far, ring.length - 1]];
+  while (spans.length) {
+    const [first, last] = spans.pop();
+    let index = -1;
+    let worst = tolSq;
+    for (let i = first + 1; i < last; i++) {
+      const dist = segmentDistSq(ring[i], ring[first], ring[last]);
+      if (dist > worst) {
+        index = i;
+        worst = dist;
+      }
+    }
+    if (index === -1) continue;
+    keep[index] = 1;
+    spans.push([first, index], [index, last]);
+  }
+
+  const out = [];
+  for (let i = 0; i < ring.length; i++) {
+    if (keep[i]) out.push(ring[i]);
+  }
+  return out.length >= 3 ? out : ring;
+}
+
+function simplifyRings(rings, tolerance) {
+  return rings.map((ring) => simplifyRing(ring, tolerance)).filter((ring) => ring.length >= 3);
 }
 
 function ringArea(ring) {
@@ -233,6 +315,7 @@ for (const entry of isoData) {
 const arcs = decodeArcs(atlas);
 const shapes = new Map();
 const otherPaths = [];
+const backdropPaths = [];
 
 for (const geometry of atlas.objects.countries.geometries) {
   const name = geometry.properties && geometry.properties.name;
@@ -244,11 +327,18 @@ for (const geometry of atlas.objects.countries.geometries) {
   const kept = rings.filter((ring) => ringArea(ring) >= MIN_RING_AREA);
   rings = kept.length ? kept : [rings.reduce((a, b) => (ringArea(a) >= ringArea(b) ? a : b))];
 
-  const d = pathFromRings(rings);
+  const detailed = simplifyRings(rings, SHAPE_TOLERANCE);
+  if (!detailed.length) continue;
+
+  backdropPaths.push(pathFromRings(simplifyRings(rings, BACKDROP_TOLERANCE)));
+  const d = pathFromRings(detailed);
 
   if (code && wanted.has(code)) {
     const existing = shapes.get(code);
-    shapes.set(code, existing ? { d: existing.d + d, rings: existing.rings.concat(rings) } : { d, rings });
+    shapes.set(
+      code,
+      existing ? { d: existing.d + d, rings: existing.rings.concat(detailed) } : { d, rings: detailed }
+    );
   } else {
     otherPaths.push(d);
   }
@@ -285,6 +375,10 @@ const lines = [
   ' * ' + LAT_TOP + '..' + LAT_BOTTOM + '. Country boxes are [x, y, width, height] around the main',
   ' * landmass. Countries too small to draw at this scale get a point instead.',
   ' *',
+  ' * Country shapes carry ' + SHAPE_TOLERANCE + 'px of detail, as much as the panel can resolve at',
+  ' * full zoom. `land` is the same world at ' + BACKDROP_TOLERANCE + 'px, cheap enough to redraw on',
+  ' * every frame of a zoom while the view is still wide.',
+  ' *',
   ' * Source: Natural Earth 1:50m via world-atlas, public domain. */',
   '',
   'const WORLD_MAP = {',
@@ -304,6 +398,7 @@ for (const [code, point] of Object.entries(points)) {
 }
 lines.push('  },');
 lines.push("  other: '" + otherPaths.join('') + "',");
+lines.push("  land: '" + backdropPaths.join('') + "',");
 lines.push('};');
 lines.push('');
 
@@ -315,6 +410,8 @@ writeFileSync(outPath, output, 'utf8');
 console.log('viewBox      ' + WIDTH + ' x ' + HEIGHT);
 console.log('shapes       ' + Object.keys(mapCountries).length + ' of ' + wanted.size + ' countries');
 console.log('points       ' + Object.keys(points).length + ' (' + Object.keys(points).join(', ') + ')');
-console.log('backdrop     ' + otherPaths.length + ' extra territories');
+console.log('extras       ' + otherPaths.length + ' territories outside the country list');
+console.log('detail       ' + SHAPE_TOLERANCE + 'px shapes, ' + BACKDROP_TOLERANCE + 'px backdrop');
+console.log('backdrop     ' + Math.round(backdropPaths.join('').length / 1024) + ' KB');
 console.log('output       ' + Math.round(output.length / 1024) + ' KB -> js/worldmap.js');
 if (missing.length) console.log('UNMATCHED    ' + missing.join(', '));

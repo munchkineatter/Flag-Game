@@ -10,6 +10,8 @@
   const MAP_CONTEXT_DEGREES = 24;
   const MAP_MAX_SCALE = 15;
   const MAP_ZOOM_MS = 700;
+  /** Zoom at which the cheap backdrop stops being pixel-perfect and the detailed one is worth its cost. */
+  const MAP_DETAIL_SCALE = 4;
   /** Countries narrower than this many map units also get a ring drawn around them. */
   const MAP_TINY = 80;
   const MAP_PIN_RADIUS = 150;
@@ -75,8 +77,13 @@
   let mapReady = false;
   let mapCopyId = null;
   let mapResizeId = null;
+  let mapDetailId = null;
   /** Country currently drawn on the map, kept so a resize can redo the zoom. */
   let mapShowing = null;
+  /** The world at two levels of detail, and which one is on the map right now. */
+  let landCoarse = '';
+  let landFine = '';
+  let landDetailed = false;
 
   /* ---------- persistence ---------- */
 
@@ -163,7 +170,11 @@
     const outlines = Object.keys(WORLD_MAP.countries).map(function (code) {
       return WORLD_MAP.countries[code].d;
     });
-    el.mapLand.setAttribute('d', WORLD_MAP.other + outlines.join(''));
+    landFine = WORLD_MAP.other + outlines.join('');
+    landCoarse = WORLD_MAP.land || landFine;
+    landDetailed = true;
+    setLandDetail(false);
+
     el.mapSvg.setAttribute('viewBox', '0 0 ' + WORLD_MAP.width + ' ' + WORLD_MAP.height);
     el.map.style.setProperty('--map-aspect', WORLD_MAP.width + ' / ' + WORLD_MAP.height);
     el.mapOcean.setAttribute('width', WORLD_MAP.width);
@@ -171,6 +182,14 @@
     el.mapCopyLeft.setAttribute('x', -WORLD_MAP.width);
     el.mapCopyRight.setAttribute('x', WORLD_MAP.width);
     return true;
+  }
+
+  /** The whole backdrop is repainted on every frame of a zoom, so it carries only as much
+   * detail as the current view can show. Anything finer costs frames and looks identical. */
+  function setLandDetail(detailed) {
+    if (detailed === landDetailed) return;
+    landDetailed = detailed;
+    el.mapLand.setAttribute('d', detailed ? landFine : landCoarse);
   }
 
   /** How much of the map is on screen, in map units. The panel rarely has the same shape as
@@ -195,21 +214,20 @@
       (WORLD_MAP.width / 2 - scale * centerX) + 'px, ' +
       (WORLD_MAP.height / 2 - scale * y) + 'px) scale(' + scale + ')';
 
-    useWorldCopies(centerX - halfWidth < 0 || centerX + halfWidth > WORLD_MAP.width);
+    // A degree of slack, so the world view does not pay for copies it cannot show.
+    useWorldCopies(centerX - halfWidth < -30, centerX + halfWidth > WORLD_MAP.width + 30);
   }
 
   /** Copies of the world sit either side of the original so views across the date line stay
-   * whole. They are switched off again only once the zoom has finished, or land would blink
-   * away halfway through the animation back to the world view. */
-  function useWorldCopies(needed) {
+   * whole. Drawing the world twice over is the most expensive thing the panel can do, and a
+   * wide view never reaches past the date line anyway, so the switch waits until the zoom is
+   * well under way: too late to cost anything, too early to be seen. */
+  function useWorldCopies(left, right) {
     window.clearTimeout(mapCopyId);
-    if (needed) {
-      el.map.classList.add('wrapped');
-    } else if (el.map.classList.contains('wrapped')) {
-      mapCopyId = window.setTimeout(function () {
-        el.map.classList.remove('wrapped');
-      }, MAP_ZOOM_MS);
-    }
+    mapCopyId = window.setTimeout(function () {
+      el.map.classList.toggle('wrap-left', left);
+      el.map.classList.toggle('wrap-right', right);
+    }, MAP_ZOOM_MS * 0.4);
   }
 
   function showOnMap(country) {
@@ -237,14 +255,30 @@
     el.mapPin.setAttribute('r', box[2] < MAP_TINY || box[3] < MAP_TINY ? MAP_PIN_RADIUS / scale : 0);
 
     zoomMap(centerX, centerY, scale);
+    detailWhenClose(scale);
     mapShowing = country;
     el.map.classList.add('located');
     el.mapCaption.textContent = country.name + ' · ' + country.region;
   }
 
+  /** Detail is swapped in partway through the zoom rather than at the end: by then the view is
+   * narrow enough that most of the world is clipped away, and the movement hides the change. */
+  function detailWhenClose(scale) {
+    window.clearTimeout(mapDetailId);
+    if (scale < MAP_DETAIL_SCALE) {
+      setLandDetail(false);
+      return;
+    }
+    mapDetailId = window.setTimeout(function () {
+      setLandDetail(true);
+    }, MAP_ZOOM_MS * 0.6);
+  }
+
   function resetMap() {
     if (!mapReady) return;
     mapShowing = null;
+    window.clearTimeout(mapDetailId);
+    setLandDetail(false);
     el.map.classList.remove('located');
     el.mapCaption.textContent = MAP_IDLE_CAPTION;
     zoomMap(WORLD_MAP.width / 2, WORLD_MAP.height / 2, 1);

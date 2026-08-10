@@ -504,12 +504,14 @@ body {
   vector-effect: non-scaling-stroke;
 }
 
-/* Second and third copies of the world, so views across the date line stay whole. */
+/* Second and third copies of the world, so views across the date line stay whole.
+ * Each side is shown on its own, since drawing the world again is not cheap. */
 .map-copy {
   display: none;
 }
 
-.map.wrapped .map-copy {
+.map.wrap-left .map-copy-left,
+.map.wrap-right .map-copy-right {
   display: inline;
 }
 

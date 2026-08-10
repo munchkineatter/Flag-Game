@@ -48,6 +48,8 @@ Scripts are plain `<script src>` tags rather than ES modules so the page works s
 
 `js/worldmap.js` holds every country as an SVG path in an equirectangular projection, 30px per degree, latitude clipped to 84N–58S. Each country also carries the box the map zooms to, measured around its main landmass so overseas territories do not drag the view out to sea. The two countries too small to draw at 1:50m, Tuvalu and Vatican City, are stored as points.
 
+The world is stored at two levels of detail, because the whole backdrop is repainted on every frame of a zoom and Natural Earth carries far more precision than the panel can show. Country shapes keep 0.4px of detail, the most the panel can resolve at full zoom. `land` is the same world at 3px, cheap enough to animate, and its error stays inside a single pixel at any zoom wide enough to be using it. The detailed backdrop is swapped in partway through a zoom, once the view is narrow enough that most of the world is clipped away.
+
 Regenerate it with `node tools/build-map.mjs`. The script downloads [Natural Earth](https://www.naturalearthdata.com/) 1:50m boundaries via [world-atlas](https://github.com/topojson/world-atlas) and ISO code mappings via [world-countries](https://github.com/mledoze/countries), then writes the file; the game itself never fetches map data.
 
 Flag images courtesy of [flagcdn.com](https://flagcdn.com). Country outlines from Natural Earth, public domain.
