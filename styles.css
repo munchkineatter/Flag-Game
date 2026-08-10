@@ -1,0 +1,680 @@
+:root {
+  --bg: #0b1020;
+  --bg-glow-a: #1b3a6b;
+  --bg-glow-b: #3a1b5c;
+  --panel: rgba(255, 255, 255, 0.05);
+  --panel-strong: rgba(255, 255, 255, 0.09);
+  --border: rgba(255, 255, 255, 0.12);
+  --text: #eef2ff;
+  --muted: #9aa4c4;
+  --accent: #6ea8fe;
+  --good: #3ddc84;
+  --bad: #ff6b6b;
+  --radius: 16px;
+  --shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  padding: 12px 16px;
+  height: 100dvh;
+  overflow: hidden;
+  font-family: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(900px 600px at 12% -8%, var(--bg-glow-a) 0%, transparent 60%),
+    radial-gradient(800px 620px at 105% 0%, var(--bg-glow-b) 0%, transparent 55%),
+    var(--bg);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* One screenful: header, settings and footer take what they need, the stage takes the rest. */
+.app {
+  height: 100%;
+  max-width: 1800px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+/* Header */
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 1.4rem;
+  letter-spacing: -0.02em;
+  background: linear-gradient(100deg, #ffffff, #9ec5ff);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.brand p {
+  margin: 2px 0 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.stat {
+  min-width: 72px;
+  padding: 5px 10px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  text-align: center;
+}
+
+.stat-label {
+  display: block;
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+}
+
+.stat-value {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-timer .stat-value {
+  color: var(--accent);
+}
+
+.stat-timer.urgent .stat-value {
+  color: var(--bad);
+}
+
+/* Controls */
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+
+.control {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.control-actions {
+  flex-direction: row;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.control-label {
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--muted);
+}
+
+.segmented {
+  display: flex;
+  padding: 3px;
+  gap: 3px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+}
+
+.seg,
+.btn,
+.select {
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.seg {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  font-size: 0.84rem;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.seg:hover {
+  background: var(--panel-strong);
+}
+
+.seg[aria-pressed="true"] {
+  background: var(--accent);
+  color: #08122a;
+  font-weight: 600;
+}
+
+.select {
+  padding: 7px 11px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border);
+  font-size: 0.84rem;
+}
+
+.select option {
+  background: #131a2e;
+  color: var(--text);
+}
+
+.btn {
+  padding: 7px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-strong);
+  font-size: 0.84rem;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--muted);
+}
+
+.btn-primary {
+  background: var(--accent);
+  border-color: transparent;
+  color: #08122a;
+  font-weight: 600;
+  padding: 10px 22px;
+  font-size: 0.95rem;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #8bbaff;
+}
+
+.btn:disabled {
+  cursor: default;
+  opacity: 0.4;
+}
+
+/* Stage */
+
+/* The map is a wide, flat shape, so it gets the wider column to earn some height. */
+.stage {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  gap: 18px;
+  min-height: 0;
+}
+
+/* Each column centres its own stack, so leftover height does not open gaps mid-layout. */
+.column {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.column-board {
+  gap: 4px;
+}
+
+.column-map {
+  gap: 12px;
+}
+
+.prompt-label {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+}
+
+.prompt {
+  margin: 0 0 8px;
+  font-size: clamp(1.3rem, 2.4vw, 2rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  text-align: center;
+  line-height: 1.15;
+}
+
+/* Held near the shape two rows of 3:2 flags want, so tiles are not mostly empty space. */
+.board {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  width: 100%;
+  aspect-ratio: 1.24;
+  flex: 0 1 auto;
+  min-height: 0;
+}
+
+/* A proportional name row keeps the flag area at 3:2 whatever size the board ends up. */
+.tile {
+  position: relative;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) 17%;
+  min-height: 0;
+  padding: 0;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.tile:hover:not(:disabled) {
+  transform: translateY(-3px);
+  border-color: var(--accent);
+}
+
+.tile:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.tile:disabled {
+  cursor: default;
+}
+
+/* Contain rather than cover, so flags that are not 3:2 keep their real proportions. */
+.tile-flag {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+  padding: 6px;
+}
+
+.tile-key {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  min-width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(6, 10, 22, 0.72);
+  color: var(--text);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.tile-name {
+  display: grid;
+  place-items: center;
+  padding: 2px 8px;
+  overflow: hidden;
+  text-align: center;
+  line-height: 1.15;
+  font-size: 0.82rem;
+  font-weight: 600;
+  background: rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.tile.revealed .tile-name {
+  opacity: 1;
+}
+
+.tile.correct {
+  border-color: var(--good);
+}
+
+.tile.correct .tile-name {
+  color: var(--good);
+}
+
+.tile.wrong {
+  border-color: var(--bad);
+}
+
+.tile.wrong .tile-name {
+  color: var(--bad);
+}
+
+.tile.picked.correct {
+  animation: pop 0.35s ease;
+}
+
+.tile.picked.wrong {
+  animation: shake 0.35s ease;
+}
+
+.tile.dimmed {
+  opacity: 0.62;
+}
+
+.tile.missing .tile-flag {
+  background:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.05) 0 12px, rgba(255, 255, 255, 0.1) 12px 24px);
+}
+
+@keyframes pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.045); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  45% { transform: translateX(7px); }
+  70% { transform: translateX(-4px); }
+}
+
+.feedback {
+  margin: 0;
+  min-height: 40px;
+  display: grid;
+  place-items: center;
+  font-size: 0.92rem;
+  line-height: 1.3;
+  text-align: center;
+  color: var(--muted);
+}
+
+.feedback.good {
+  color: var(--good);
+}
+
+.feedback.bad {
+  color: var(--bad);
+}
+
+.btn-next {
+  justify-self: center;
+  width: 100%;
+  max-width: 320px;
+}
+
+/* Map */
+
+.map {
+  margin: 0;
+  min-height: 0;
+  flex: 0 1 auto;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.map[hidden] {
+  display: none;
+}
+
+/* Kept at the shape of the map itself, so the world view has no empty bands. */
+.map-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: var(--map-aspect, 5 / 2);
+  min-height: 0;
+}
+
+.map-zoom {
+  transform-box: view-box;
+  transform-origin: 0 0;
+  transition: transform 700ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.map-ocean {
+  fill: #080d1c;
+}
+
+.map-land {
+  fill: rgba(255, 255, 255, 0.17);
+  stroke: rgba(255, 255, 255, 0.3);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.map-country,
+.map-pin {
+  opacity: 0;
+  transition: opacity 300ms ease 250ms;
+}
+
+.map.located .map-country,
+.map.located .map-pin {
+  opacity: 1;
+}
+
+.map-country {
+  fill: var(--accent);
+  stroke: #dce9ff;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Marks countries too small to see at any zoom the panel can reach. */
+.map-pin {
+  fill: rgba(110, 168, 254, 0.3);
+  stroke: #dce9ff;
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Second and third copies of the world, so views across the date line stay whole. */
+.map-copy {
+  display: none;
+}
+
+.map.wrapped .map-copy {
+  display: inline;
+}
+
+.map-caption {
+  padding: 7px 10px;
+  border-top: 1px solid var(--border);
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+.map.located .map-caption {
+  color: var(--text);
+}
+
+.hint {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+kbd {
+  padding: 1px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.08);
+  font: inherit;
+  font-size: 0.74rem;
+}
+
+/* Summary overlay */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(5, 8, 18, 0.78);
+  backdrop-filter: blur(6px);
+  overflow-y: auto;
+}
+
+.overlay.hidden {
+  display: none;
+}
+
+.sheet {
+  width: min(640px, 100%);
+  padding: 26px;
+  border-radius: 20px;
+  background: #121a30;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.sheet h2 {
+  margin: 0 0 18px;
+  font-size: 1.5rem;
+}
+
+.summary-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.summary-stat {
+  padding: 14px 8px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+
+.summary-stat .stat-value {
+  font-size: 1.7rem;
+}
+
+.summary-subtitle {
+  margin: 0 0 12px;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.missed {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 10px;
+  max-height: 40dvh;
+  overflow-y: auto;
+  margin-bottom: 22px;
+  text-align: left;
+}
+
+.missed-card {
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+
+.missed-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 2;
+  object-fit: contain;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.missed-card span {
+  display: block;
+  padding: 6px 8px;
+  font-size: 0.76rem;
+  line-height: 1.25;
+}
+
+.missed-empty {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  text-align: center;
+  padding: 16px 0;
+}
+
+/* Too narrow or too short for one screenful: stack and let the page scroll. */
+@media (max-width: 900px), (max-height: 540px) {
+  html,
+  body {
+    height: auto;
+  }
+
+  body {
+    overflow: auto;
+    padding-bottom: 24px;
+  }
+
+  .app {
+    height: auto;
+  }
+
+  .stage {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .map-svg {
+    height: auto;
+    aspect-ratio: var(--map-aspect, 5 / 2);
+  }
+
+  .control-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
