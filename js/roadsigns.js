@@ -1,11 +1,9 @@
 /* Road signs, grouped by the design conventions that give a country away.
  *
- * Each entry is one sign design. `countries` is every country the game will
- * accept as an answer, and `contrast` is the pool the wrong answers come from:
- * countries whose own version of that sign looks clearly different. Keeping the
- * wrong answers on a list rather than picking them at random is what stops the
- * game asking something unanswerable, like offering both the United States and
- * Australia under a yellow diamond.
+ * Each entry is one sign design. `label` is what the player picks from the four
+ * tiles — unique, so two different stop signs never share an answer. `countries`
+ * is who uses the design, shown on the map after you answer. `confusable` lists
+ * other sign ids that look alike, which hard mode prefers as wrong answers.
  *
  * `image` is a file on Wikimedia Commons, fetched through Special:FilePath so
  * the URL survives the file being re-uploaded. `art` is the drawn stand-in used
@@ -54,14 +52,37 @@ const SIGNS = (function () {
   /** Countries that leave the give-way triangle empty rather than writing on it. */
   const BLANK_YIELD = without(EUROPE_ALL, ['gb', 'mt', 'cy']).concat(AFRICA_WHITE);
 
+  const WARN_FAMILY = [
+    'warn-white-triangle',
+    'warn-white-sadc',
+    'warn-yellow-triangle',
+    'warn-yellow-animals',
+    'warn-yellow-diamond',
+    'warn-diamond-ireland',
+    'warn-moose',
+    'warn-kangaroo',
+  ];
+
+  const STOP_FAMILY = ['stop-alto', 'stop-pare', 'stop-japan', 'stop-israel', 'stop-arabic'];
+  const YIELD_FAMILY = ['yield-blank', 'yield-word', 'yield-giveway', 'stop-alto', 'priority-road'];
+  const SPEED_FAMILY = ['speed-ring', 'speed-us', 'speed-canada', 'speed-plate'];
+  const CROSSING_FAMILY = ['crossing-blue', 'crossing-diamond', 'school-pentagon', 'warn-yellow-diamond'];
+
+  function peers(family, id) {
+    return family.filter(function (other) {
+      return other !== id;
+    });
+  }
+
   return [
     /* ---------- warning sign families ---------- */
     {
       id: 'warn-white-triangle',
       name: 'General warning',
+      label: 'General warning (white triangle)',
       image: 'Zeichen 101 - Gefahrstelle, StVO 1970.svg',
       countries: WHITE_TRIANGLE,
-      contrast: YELLOW_TRIANGLE.concat(YELLOW_DIAMOND),
+      confusable: peers(WARN_FAMILY, 'warn-white-triangle'),
       tells:
         'A red-bordered white triangle is the ordinary warning sign across most of Europe, and across Africa, the Middle East and South Asia with it. Yellow behind the triangle moves you to the Nordics, Poland or the western Balkans; a yellow diamond takes you out of that world entirely, or to Ireland.',
       art: { shape: 'triangle', fill: '#ffffff', border: '#d52b1e', text: '!' },
@@ -69,9 +90,10 @@ const SIGNS = (function () {
     {
       id: 'warn-white-sadc',
       name: 'Animals ahead',
+      label: 'Animals ahead (white triangle)',
       image: 'SADC road sign W311.svg',
       countries: WHITE_TRIANGLE,
-      contrast: YELLOW_TRIANGLE.concat(YELLOW_DIAMOND),
+      confusable: peers(WARN_FAMILY, 'warn-white-sadc'),
       tells:
         'Southern Africa uses the same white triangle as Europe, drawn to the shared SADC standard from South Africa up to Tanzania. The sign will not narrow the country down, but it does rule out the yellow-diamond half of the world.',
       art: { shape: 'triangle', fill: '#ffffff', border: '#d52b1e', text: '!' },
@@ -79,9 +101,10 @@ const SIGNS = (function () {
     {
       id: 'warn-yellow-triangle',
       name: 'Bend ahead',
+      label: 'Bend ahead (yellow triangle)',
       image: 'Sweden road sign A1-1.svg',
       countries: YELLOW_TRIANGLE,
-      contrast: WHITE_TRIANGLE.concat(YELLOW_DIAMOND),
+      confusable: peers(WARN_FAMILY, 'warn-yellow-triangle'),
       tells:
         'Yellow behind a red-bordered triangle means the Nordics, Poland, Greece or the western Balkans. Denmark is the odd one out up north: its warning signs are white like the rest of Europe.',
       art: { shape: 'triangle', fill: '#f5c518', border: '#d52b1e', glyph: 'bend' },
@@ -89,9 +112,10 @@ const SIGNS = (function () {
     {
       id: 'warn-yellow-animals',
       name: 'Wild animals',
+      label: 'Wild animals (yellow triangle)',
       image: 'Znak A-18b.svg',
       countries: YELLOW_TRIANGLE,
-      contrast: WHITE_TRIANGLE.concat(YELLOW_DIAMOND),
+      confusable: peers(WARN_FAMILY, 'warn-yellow-animals'),
       tells:
         'Another yellow triangle. Poland shares the yellow warning background with the Nordics and most of ex-Yugoslavia, while Czechia, Slovakia and Germany next door all use white.',
       art: { shape: 'triangle', fill: '#f5c518', border: '#d52b1e', text: '!' },
@@ -99,9 +123,10 @@ const SIGNS = (function () {
     {
       id: 'warn-yellow-diamond',
       name: 'Bend ahead',
+      label: 'Bend ahead (yellow diamond)',
       image: 'MUTCD W1-1L.svg',
       countries: YELLOW_DIAMOND,
-      contrast: WHITE_TRIANGLE.concat(YELLOW_TRIANGLE),
+      confusable: peers(WARN_FAMILY, 'warn-yellow-diamond'),
       tells:
         'Yellow diamonds cover the Americas, Australia, New Zealand, Japan and much of Southeast Asia. In Europe only Ireland uses them, which makes a diamond on a European-looking road a strong Ireland call.',
       art: { shape: 'diamond', fill: '#f5c518', border: '#111111', ring: 0.9, glyph: 'bend' },
@@ -109,9 +134,10 @@ const SIGNS = (function () {
     {
       id: 'warn-diamond-ireland',
       name: 'Crossroads ahead',
+      label: 'Crossroads ahead (yellow diamond)',
       image: 'Ireland road sign W 001.svg',
       countries: ['ie'],
-      contrast: without(EUROPE_ALL, ['ie']),
+      confusable: peers(WARN_FAMILY, 'warn-diamond-ireland'),
       tells:
         'Ireland is the only country in Europe that warns with yellow diamonds instead of triangles. Northern Ireland uses UK white triangles, so the diamond also tells you which side of that border you are on.',
       art: { shape: 'diamond', fill: '#f5c518', border: '#111111', ring: 0.9, glyph: 'cross' },
@@ -119,9 +145,10 @@ const SIGNS = (function () {
     {
       id: 'warn-moose',
       name: 'Elk crossing',
+      label: 'Elk crossing (yellow triangle)',
       image: 'Finland road sign 155.svg',
       countries: ['fi', 'se', 'no'],
-      contrast: without(WHITE_TRIANGLE, []).concat(['pl', 'gr', 'hr', 'rs']),
+      confusable: peers(WARN_FAMILY, 'warn-moose'),
       tells:
         'An elk on a yellow triangle is Nordic. Estonia and Latvia have the same animals but draw them on white triangles, so the background colour is doing the work here.',
       art: { shape: 'triangle', fill: '#f5c518', border: '#d52b1e', text: '!' },
@@ -129,9 +156,10 @@ const SIGNS = (function () {
     {
       id: 'warn-kangaroo',
       name: 'Kangaroos ahead',
+      label: 'Kangaroos ahead (yellow diamond)',
       image: 'Australia road sign W5-29.svg',
       countries: ['au'],
-      contrast: without(YELLOW_DIAMOND, ['au']),
+      confusable: peers(WARN_FAMILY, 'warn-kangaroo'),
       tells:
         'Kangaroo warnings are Australia only. New Zealand has no kangaroos, so this sign also settles the most common mix-up in the southern hemisphere.',
       art: { shape: 'diamond', fill: '#f5c518', border: '#111111', ring: 0.9, text: '!' },
@@ -141,9 +169,10 @@ const SIGNS = (function () {
     {
       id: 'stop-alto',
       name: 'Stop',
+      label: 'Stop — ALTO',
       image: 'Mexico road sign SR-06.svg',
       countries: ALTO,
-      contrast: PARE.concat(['us', 'ca', 'es', 'pt', 'gb']),
+      confusable: peers(STOP_FAMILY, 'stop-alto'),
       tells:
         'ALTO is Mexico and most of Central America. Spanish-speaking South America writes PARE instead, so the word on the octagon splits the continent in two.',
       art: { shape: 'octagon', fill: '#c8102e', border: '#ffffff', ring: 0.88, ink: '#ffffff', text: 'ALTO' },
@@ -151,29 +180,21 @@ const SIGNS = (function () {
     {
       id: 'stop-pare',
       name: 'Stop',
+      label: 'Stop — PARE',
       image: 'Brasil R-1.svg',
       countries: PARE,
-      contrast: ALTO.concat(['us', 'ca', 'es', 'pt', 'gb']),
+      confusable: peers(STOP_FAMILY, 'stop-pare'),
       tells:
         'PARE covers Brazil and Spanish-speaking South America. Mexico and Central America use ALTO, and Portugal, despite the language, uses plain STOP.',
       art: { shape: 'octagon', fill: '#c8102e', border: '#ffffff', ring: 0.88, ink: '#ffffff', text: 'PARE' },
     },
     {
-      id: 'stop-pare-chile',
-      name: 'Stop',
-      image: 'Chile road sign RPO-1.svg',
-      countries: PARE,
-      contrast: ALTO.concat(['us', 'ca', 'es', 'pt', 'gb']),
-      tells:
-        'Chile, Argentina, Colombia and the rest of Spanish-speaking South America all write PARE. Only Mexico and Central America say ALTO.',
-      art: { shape: 'octagon', fill: '#c8102e', border: '#ffffff', ring: 0.88, ink: '#ffffff', text: 'PARE' },
-    },
-    {
       id: 'stop-japan',
       name: 'Stop',
+      label: 'Stop — Japan (triangle)',
       image: 'Japan road sign 330-A.svg',
       countries: ['jp'],
-      contrast: ['kr', 'cn', 'tw', 'th', 'us', 'ca', 'au', 'nz', 'de', 'fr'],
+      confusable: peers(STOP_FAMILY, 'stop-japan'),
       tells:
         'Japan is the one major country that does not use an octagon. Its stop sign is a red downward triangle reading 止まれ, so a triangle at a junction is an instant Japan call.',
       art: { shape: 'triangle-down', fill: '#c8102e', border: '#ffffff', ring: 0.86, ink: '#ffffff', text: '止まれ' },
@@ -181,9 +202,10 @@ const SIGNS = (function () {
     {
       id: 'stop-israel',
       name: 'Stop',
+      label: 'Stop — raised hand',
       image: 'Israel road sign 302.svg',
       countries: ['il'],
-      contrast: ['jo', 'eg', 'tr', 'gr', 'cy', 'sa', 'ae', 'it', 'es'],
+      confusable: peers(STOP_FAMILY, 'stop-israel'),
       tells:
         'Israel puts a raised hand on the octagon instead of a word, which sidesteps having to write it in Hebrew, Arabic and English. No other country signs a stop that way.',
       art: { shape: 'octagon', fill: '#c8102e', border: '#ffffff', ring: 0.88, ink: '#ffffff', glyph: 'hand' },
@@ -191,9 +213,10 @@ const SIGNS = (function () {
     {
       id: 'stop-arabic',
       name: 'Stop',
+      label: 'Stop — Arabic / English',
       image: 'Saudi Arabia - Road Sign - Stop.svg',
       countries: GULF,
-      contrast: ['il', 'tr', 'ir', 'pk', 'in', 'eg', 'ma', 'gr', 'es'],
+      confusable: peers(STOP_FAMILY, 'stop-arabic'),
       tells:
         'The Gulf states stack Arabic قف over the English STOP on one octagon. Egypt and the Maghreb usually write only in Arabic and French, so the bilingual Arabic-English pairing points at the Gulf.',
       art: { shape: 'octagon', fill: '#c8102e', border: '#ffffff', ring: 0.88, ink: '#ffffff', text: 'قف\nSTOP' },
@@ -203,29 +226,21 @@ const SIGNS = (function () {
     {
       id: 'yield-blank',
       name: 'Give way',
+      label: 'Give way (blank triangle)',
       image: 'Zeichen 205.svg',
       countries: BLANK_YIELD,
-      contrast: ['us', 'ca', 'gb', 'au', 'nz', 'ie', 'in'],
+      confusable: peers(YIELD_FAMILY, 'yield-blank'),
       tells:
         'Continental Europe leaves the give-way triangle empty and lets the shape speak, and most of Africa follows it. The English-speaking world writes it out instead: YIELD in North America, GIVE WAY in Britain and Australasia.',
       art: { shape: 'triangle-down', fill: '#ffffff', border: '#d52b1e', ring: 0.72 },
     },
     {
-      id: 'yield-blank-kenya',
-      name: 'Give way',
-      image: 'Kenya road sign R02 1975-2009.svg',
-      countries: BLANK_YIELD,
-      contrast: ['us', 'ca', 'gb', 'au', 'nz', 'ie', 'in'],
-      tells:
-        'East Africa inherited the empty give-way triangle rather than the British lettered one, even though Kenya, Tanzania and Uganda all drive on the left.',
-      art: { shape: 'triangle-down', fill: '#ffffff', border: '#d52b1e', ring: 0.72 },
-    },
-    {
       id: 'yield-word',
       name: 'Give way',
+      label: 'Give way — YIELD',
       image: 'MUTCD R1-2.svg',
       countries: ['us', 'ca'],
-      contrast: ['au', 'nz', 'gb', 'ie', 'de', 'fr', 'es', 'mx', 'br'],
+      confusable: peers(YIELD_FAMILY, 'yield-word'),
       tells:
         'YIELD is North American wording. Everywhere else that writes on the triangle says GIVE WAY, and continental Europe leaves it blank.',
       art: { shape: 'triangle-down', fill: '#ffffff', border: '#c8102e', ring: 0.72, text: 'YIELD' },
@@ -233,9 +248,10 @@ const SIGNS = (function () {
     {
       id: 'yield-giveway',
       name: 'Give way',
+      label: 'Give way — GIVE WAY',
       image: 'Australia road sign R1-2.svg',
       countries: ['au', 'nz', 'gb'],
-      contrast: ['us', 'ca', 'mx', 'de', 'fr', 'es', 'it', 'br', 'jp'],
+      confusable: peers(YIELD_FAMILY, 'yield-giveway'),
       tells:
         'GIVE WAY is British and Australasian. The United States and Canada say YIELD, and continental Europe writes nothing at all.',
       art: { shape: 'triangle-down', fill: '#ffffff', border: '#c8102e', ring: 0.72, text: 'GIVE\nWAY' },
@@ -245,9 +261,10 @@ const SIGNS = (function () {
     {
       id: 'speed-ring',
       name: 'Speed limit',
+      label: 'Speed limit (red ring)',
       image: 'Zeichen 274-50 - Zulässige Höchstgeschwindigkeit, StVO 2017.svg',
       countries: EUROPE_ALL.concat(AFRICA_WHITE, ASIA_WHITE, ['ie', 'jp', 'br', 'ar', 'mx', 'th', 'id']),
-      contrast: ['us', 'ca', 'au', 'nz'],
+      confusable: peers(SPEED_FAMILY, 'speed-ring'),
       tells:
         'A number in a red ring is the world standard. The exceptions are worth memorising: the United States and Canada use black-on-white rectangles, and Australia and New Zealand put the ring on a white plate.',
       art: { shape: 'circle', fill: '#ffffff', border: '#d52b1e', text: '50' },
@@ -255,9 +272,10 @@ const SIGNS = (function () {
     {
       id: 'speed-us',
       name: 'Speed limit',
+      label: 'Speed limit — SPEED LIMIT',
       image: 'MUTCD R2-1.svg',
       countries: ['us'],
-      contrast: ['ca', 'mx', 'au', 'nz', 'gb', 'ie', 'de', 'br'],
+      confusable: peers(SPEED_FAMILY, 'speed-us'),
       tells:
         'Spelling out SPEED LIMIT in black on a white rectangle is the United States. Canada writes MAXIMUM, and almost everyone else uses a red ring.',
       art: { shape: 'rect-tall', fill: '#ffffff', border: '#111111', ring: 0.94, text: 'SPEED\nLIMIT\n55' },
@@ -265,9 +283,10 @@ const SIGNS = (function () {
     {
       id: 'speed-canada',
       name: 'Speed limit',
+      label: 'Speed limit — MAXIMUM',
       image: 'Ontario Rb-1.svg',
       countries: ['ca'],
-      contrast: ['us', 'mx', 'au', 'nz', 'gb', 'ie', 'fr', 'br'],
+      confusable: peers(SPEED_FAMILY, 'speed-canada'),
       tells:
         'MAXIMUM on a white rectangle is Canada, and the numbers are km/h. The same rectangle reading SPEED LIMIT, in mph, is the United States.',
       art: { shape: 'rect-tall', fill: '#ffffff', border: '#111111', ring: 0.94, text: 'MAXIMUM\n50' },
@@ -275,9 +294,10 @@ const SIGNS = (function () {
     {
       id: 'speed-plate',
       name: 'Speed limit',
+      label: 'Speed limit (ring on plate)',
       image: 'Australia road sign R4-1 (60).svg',
       countries: ['au', 'nz'],
-      contrast: ['us', 'ca', 'gb', 'ie', 'de', 'fr', 'jp', 'za'],
+      confusable: peers(SPEED_FAMILY, 'speed-plate'),
       tells:
         'Australia and New Zealand keep the red ring but mount it on a white rectangular plate rather than a round sign. Europe uses the bare circle.',
       art: { shape: 'circle', fill: '#ffffff', border: '#d52b1e', plate: true, text: '60' },
@@ -287,9 +307,10 @@ const SIGNS = (function () {
     {
       id: 'priority-road',
       name: 'Priority road',
+      label: 'Priority road',
       image: 'Zeichen 306 - Vorfahrtstraße, StVO 1970.svg',
       countries: without(EUROPE_ALL, ['gb', 'mt', 'cy']),
-      contrast: ['us', 'ca', 'mx', 'au', 'nz', 'gb', 'ie', 'jp', 'br'],
+      confusable: ['warn-yellow-diamond', 'warn-diamond-ireland', 'school-pentagon', 'roundabout-blue'],
       tells:
         'The yellow diamond priority-road sign is a European fixture and has no equivalent in Britain, Ireland or North America. Seeing one rules out a very large part of the world.',
       art: { shape: 'diamond', fill: '#f5c518', border: '#ffffff', ring: 0.72 },
@@ -297,9 +318,10 @@ const SIGNS = (function () {
     {
       id: 'roundabout-blue',
       name: 'Roundabout',
+      label: 'Roundabout (blue circle)',
       image: 'Zeichen 215 - Kreisverkehr, StVO 2000.svg',
       countries: without(EUROPE_ALL, ['gb']),
-      contrast: ['us', 'ca', 'mx', 'au', 'nz', 'jp', 'br'],
+      confusable: ['priority-road', 'crossing-blue', 'speed-ring', 'motorway-green'],
       tells:
         'Europe orders you round a roundabout with a blue circle of arrows. North America warns about one with a yellow diamond instead, and never uses the blue mandatory circle.',
       art: { shape: 'circle', fill: '#003399', border: '#003399', ink: '#ffffff', text: '\u21bb' },
@@ -307,9 +329,10 @@ const SIGNS = (function () {
     {
       id: 'crossing-blue',
       name: 'Pedestrian crossing',
+      label: 'Pedestrian crossing (blue square)',
       image: 'Vienna Convention road sign E12a-V1.svg',
       countries: EUROPE_ALL,
-      contrast: ['us', 'ca', 'mx', 'au', 'nz'],
+      confusable: peers(CROSSING_FAMILY, 'crossing-blue'),
       tells:
         'Europe marks a crossing with a blue square and a walking figure. North America uses a yellow or fluorescent-green diamond, which is a warning rather than an instruction.',
       art: { shape: 'rect', fill: '#003399', border: '#003399', ink: '#ffffff', glyph: 'person' },
@@ -317,9 +340,10 @@ const SIGNS = (function () {
     {
       id: 'crossing-diamond',
       name: 'Pedestrian crossing',
+      label: 'Pedestrian crossing (yellow diamond)',
       image: 'MUTCD W11-2.svg',
       countries: ['us', 'ca', 'mx'],
-      contrast: without(EUROPE_ALL, []).concat(['jp', 'au']),
+      confusable: peers(CROSSING_FAMILY, 'crossing-diamond'),
       tells:
         'A walking figure on a yellow diamond is North American. Europe puts the same figure on a blue square, and Australia uses its own rectangular signs.',
       art: { shape: 'diamond', fill: '#f5c518', border: '#111111', ring: 0.9, glyph: 'person' },
@@ -327,9 +351,10 @@ const SIGNS = (function () {
     {
       id: 'school-pentagon',
       name: 'School zone',
+      label: 'School zone (pentagon)',
       image: 'MUTCD S1-1.svg',
       countries: ['us', 'ca'],
-      contrast: ['gb', 'ie', 'au', 'nz', 'de', 'fr', 'es', 'mx', 'jp'],
+      confusable: peers(CROSSING_FAMILY, 'school-pentagon'),
       tells:
         'The five-sided school sign in fluorescent yellow-green is North America only. That shade of green appears on nothing else, so it is visible from a long way off.',
       art: { shape: 'pentagon', fill: '#c6ee2a', border: '#111111', ring: 0.92, glyph: 'person' },
@@ -337,9 +362,10 @@ const SIGNS = (function () {
     {
       id: 'interstate-shield',
       name: 'Route marker',
+      label: 'Interstate shield',
       image: 'MUTCD M1-1.svg',
       countries: ['us'],
-      contrast: ['ca', 'mx', 'au', 'nz', 'gb', 'ie', 'de', 'fr', 'br'],
+      confusable: ['us-route-shield', 'speed-us', 'speed-canada', 'motorway-green'],
       tells:
         'The red and blue shield is the US Interstate marker. Canada uses provincial shields of its own and Mexico numbers roads on plain white rectangles.',
       art: { shape: 'rect-tall', fill: '#003399', border: '#c8102e', ring: 0.78, ink: '#ffffff', text: '22' },
@@ -347,9 +373,10 @@ const SIGNS = (function () {
     {
       id: 'us-route-shield',
       name: 'Route marker',
+      label: 'US Highway shield',
       image: 'MUTCD M1-4.svg',
       countries: ['us'],
-      contrast: ['ca', 'mx', 'au', 'nz', 'gb', 'ie', 'de', 'fr', 'br'],
+      confusable: ['interstate-shield', 'speed-us', 'speed-canada', 'town-plate'],
       tells:
         'The white escutcheon on a black square is the US Highway marker, the older cousin of the Interstate shield. Both are United States only.',
       art: { shape: 'rect-tall', fill: '#111111', border: '#111111', glyph: 'shield' },
@@ -357,9 +384,10 @@ const SIGNS = (function () {
     {
       id: 'motorway-green',
       name: 'Motorway',
+      label: 'Motorway (green)',
       image: 'Italian traffic signs - autostrada.svg',
       countries: ['it', 'ch'],
-      contrast: ['fr', 'de', 'es', 'pt', 'at', 'be', 'nl', 'gb', 'pl'],
+      confusable: ['roundabout-blue', 'crossing-blue', 'town-plate', 'priority-road'],
       tells:
         'Italy and Switzerland sign motorways in green and everything else in blue. France does the exact opposite, blue for autoroutes and green for trunk roads, which is the classic way to tell a French road from an Italian one.',
       art: { shape: 'rect', fill: '#0d7a3d', border: '#0d7a3d', ink: '#ffffff', glyph: 'motorway' },
@@ -367,9 +395,10 @@ const SIGNS = (function () {
     {
       id: 'town-plate',
       name: 'Town name',
+      label: 'Town name plate (France)',
       image: 'France road sign EB10.svg',
       countries: ['fr'],
-      contrast: ['es', 'it', 'de', 'be', 'ch', 'gb', 'pt', 'nl', 'pl'],
+      confusable: ['motorway-green', 'priority-road', 'speed-us', 'police-morocco'],
       tells:
         'France announces a town on a white plate with a red border. Germany uses yellow, Spain white with a blue strip, and Italy white with a black border, so the frame alone places you.',
       art: { shape: 'rect', fill: '#ffffff', border: '#d52b1e', ring: 0.84, text: 'DREUX' },
@@ -377,9 +406,10 @@ const SIGNS = (function () {
     {
       id: 'police-morocco',
       name: 'Police checkpoint',
+      label: 'Police checkpoint (Morocco)',
       image: 'MA road sign 325.2.svg',
       countries: ['ma'],
-      contrast: ['dz', 'tn', 'eg', 'sn', 'es', 'fr', 'pt', 'tr', 'sa'],
+      confusable: ['speed-ring', 'yield-blank', 'stop-arabic', 'town-plate'],
       tells:
         'Morocco warns of a police checkpoint with a sign labelled in Arabic and French. Arabic alongside French, rather than alongside English, puts you in the Maghreb rather than the Gulf.',
       art: { shape: 'circle', fill: '#ffffff', border: '#d52b1e', ring: 0.8, text: 'POLICE' },

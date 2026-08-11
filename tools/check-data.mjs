@@ -3,9 +3,9 @@
  *   node tools/check-data.mjs
  *
  * Verifies that every country code a language or a road sign claims exists in
- * js/countries.js, that every confusable id resolves to a language, that no sign
- * can offer a right answer as a wrong one, and that the outline game has a usable
- * shape for the countries it draws from. */
+ * js/countries.js, that every confusable id resolves, that sign answer labels
+ * are unique, and that the outline game has a usable shape for the countries
+ * it draws from. */
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -46,21 +46,37 @@ for (const language of LANGUAGES) {
 }
 
 const signIds = new Set();
+const signLabels = new Set();
 for (const sign of SIGNS) {
   if (signIds.has(sign.id)) problems.push('duplicate sign id: ' + sign.id);
   signIds.add(sign.id);
 
-  if (!sign.name || !sign.tells || !sign.art) problems.push(sign.id + ': missing a required field');
+  if (!sign.name || !sign.label || !sign.tells || !sign.art) {
+    problems.push(sign.id + ': missing a required field');
+  }
+  if (signLabels.has(sign.label)) problems.push('duplicate sign label: ' + sign.label);
+  signLabels.add(sign.label);
+
   for (const code of sign.countries) {
     if (!codes.has(code)) problems.push(sign.id + ': unknown country code ' + code);
   }
-  for (const code of sign.contrast) {
-    if (!codes.has(code)) problems.push(sign.id + ': unknown contrast code ' + code);
-    // A wrong answer that also uses the design would make the question unfair.
-    if (sign.countries.includes(code)) problems.push(sign.id + ': ' + code + ' is both an answer and a distractor');
+  if (!sign.countries.length) problems.push(sign.id + ': has no countries');
+
+  for (const other of sign.confusable || []) {
+    if (!signIds.has(other) && !SIGNS.some((s) => s.id === other)) {
+      // Resolved after the full pass; collect for a second check.
+    }
   }
-  if (sign.contrast.length < 3) problems.push(sign.id + ': needs at least three distractors');
-  if (!sign.countries.length) problems.push(sign.id + ': has no answer');
+}
+
+for (const sign of SIGNS) {
+  for (const other of sign.confusable || []) {
+    if (!signIds.has(other)) problems.push(sign.id + ': unknown confusable id ' + other);
+    if (other === sign.id) problems.push(sign.id + ': listed as its own confusable');
+  }
+  if ((sign.confusable || []).length < 3) {
+    problems.push(sign.id + ': needs at least three confusable designs');
+  }
 }
 
 // The region filter only works if each region can fill a board on its own.

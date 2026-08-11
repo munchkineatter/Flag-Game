@@ -10,7 +10,7 @@ No build step and no dependencies — just open `index.html` in a browser. Flag 
 | --- | --- | --- |
 | **Flags** | A country name and four flags; click the matching one | Flag recognition |
 | **Scripts** | A sign written in some language; name the language | Reading signs and telling look-alike alphabets apart |
-| **Road signs** | A road sign and four countries; pick who uses that design | Sign conventions: triangles against diamonds, ALTO against PARE |
+| **Road signs** | A road sign and four design names; pick the matching type | Sign conventions: triangles against diamonds, ALTO against PARE |
 | **Outlines** | A country silhouette and four names; pick the country | Borders and coastlines |
 | **Locate** | A country name and the whole world; click where it is | Knowing where places actually are |
 
@@ -18,7 +18,7 @@ Pick one from the menu. <kbd>Esc</kbd> takes you back. Each game keeps its own s
 
 ## How a round works
 
-- Answer with the mouse, or press <kbd>1</kbd>–<kbd>4</kbd> for the games that use tiles. Locate is answered by clicking the map.
+- Answer with the mouse, or press <kbd>1</kbd>–<kbd>4</kbd> for the games that use tiles. Locate is answered by clicking the map; scroll or use the +/− buttons to zoom, and drag to pan when zoomed in.
 - A wrong answer tells you what you actually picked as well as what the answer was, so each miss teaches you two things rather than one.
 - Once you answer, the map zooms from the whole world in to the country, with enough of its neighbours in frame to place it. Countries too small to see at that scale get a marker ring instead.
 - Nothing moves on until you say so. Take as long as you like with the map, then press the next button or <kbd>Space</kbd>.
@@ -30,7 +30,7 @@ Everything sits in one screenful, so there is nothing to scroll past while you p
 | Setting | Options | Effect |
 | --- | --- | --- |
 | Mode | Endless, Sprint 60s | Sprint runs a 60 second countdown and then opens the summary. The clock keeps running while you study the map, so time spent there costs you |
-| Difficulty | Easy, Hard | Hard draws the wrong answers from the ones that are genuinely easy to confuse: the target's own region for flags, shapes and road signs, and look-alike languages for scripts |
+| Difficulty | Easy, Hard | Hard draws the wrong answers from the ones that are genuinely easy to confuse: the target's own region for flags and shapes, look-alike languages for scripts, and look-alike designs for road signs |
 | Region | All, Africa, Americas, Asia, Europe, Oceania | Limits what is in play. A language or a sign design counts as belonging to every region it is used in, so the Americas keeps Spanish and Brazilian Portuguese, and Europe keeps the yellow diamond that only Ireland uses |
 
 Locate has no difficulty setting: there is nothing to make harder except the map itself. Changing any setting restarts the session.
@@ -88,7 +88,7 @@ GameEngine.register({
 });
 ```
 
-Add a `<script src>` for it in `index.html` and it appears on the menu with its own saved progress. `ui.map` is the `MapView` module: `show(countries)` highlights and zooms to one country or many, `enableClicks(handler)` turns the map into an answer surface, and `distanceKm` grades a near miss.
+Add a `<script src>` for it in `index.html` and it appears on the menu with its own saved progress. `ui.map` is the `MapView` module: `show(countries)` highlights and zooms to one country or many, `enableClicks(handler)` turns the map into an answer surface, `setInteractive(true)` adds zoom and pan controls, and `distanceKm` grades a near miss.
 
 If the answers are not the same kind of thing as the question — Road signs asks about a sign and answers with a country — add `buildOptions(target, state)` to return the four tiles yourself, and `isCorrect(option, question)` to grade them. The engine marks the correct tile with the same test, so a question may have more than one right answer.
 
@@ -102,7 +102,7 @@ Language samples are the kind of text that ends up on a street sign, a shopfront
 
 ## Road signs
 
-Each entry in `js/roadsigns.js` is one design, listing every country that uses it and a separate `contrast` list the wrong answers come from. Keeping the wrong answers on a list rather than picking them at random is what stops the game asking something unanswerable, like offering both the United States and Australia under a yellow diamond. `node tools/check-data.mjs` fails if the two lists ever overlap.
+Each entry in `js/roadsigns.js` is one design with a unique answer `label`, the countries that use it, and a `confusable` list of look-alike designs for hard mode. After you name the design, the map highlights those countries and a written list appears under it. `node tools/check-data.mjs` fails if two signs share a label or a confusable id does not resolve.
 
 Signs are fetched from Wikimedia Commons through `Special:FilePath`, which follows the file rather than a hashed URL, so an upload does not break the link. `node tools/check-signs.mjs` confirms every filename still resolves, and `node tools/check-signs.mjs "search term"` looks for a replacement when one does not.
 

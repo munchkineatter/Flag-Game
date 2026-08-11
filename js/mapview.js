@@ -9,7 +9,9 @@ const MapView = (function () {
 
   /** Degrees of surrounding map kept in view, so a country is never shown without neighbours. */
   const CONTEXT_DEGREES = 24;
+  const MIN_SCALE = 1;
   const MAX_SCALE = 15;
+  const ZOOM_STEP = 1.45;
   const ZOOM_MS = 700;
   /** Zoom at which the cheap backdrop stops being pixel-perfect and the detailed one is worth its cost. */
   const DETAIL_SCALE = 4;
@@ -19,6 +21,8 @@ const MapView = (function () {
   /** Latitude at the top edge of the projection. Must match tools/build-map.mjs. */
   const LAT_TOP = 84;
   const EARTH_RADIUS_KM = 6371;
+  /** Pointer travel past this many CSS pixels counts as a pan, not a click. */
+  const PAN_THRESHOLD = 6;
 
   const el = {};
   let ready = false;
@@ -36,6 +40,10 @@ const MapView = (function () {
 
   let hitBuilt = false;
   let clickHandler = null;
+  /** Locate (and any other game that asks) can pan and zoom the map freely. */
+  let interactive = false;
+  let view = { x: 0, y: 0, scale: MIN_SCALE };
+  let pointer = null;
 
   /* ---------- setup ---------- */
 
@@ -58,6 +66,9 @@ const MapView = (function () {
     el.copyLeft = document.getElementById('map-copy-left');
     el.copyRight = document.getElementById('map-copy-right');
     el.caption = document.getElementById('map-caption');
+    el.tools = document.getElementById('map-tools');
+    el.zoomIn = document.getElementById('map-zoom-in');
+    el.zoomOut = document.getElementById('map-zoom-out');
 
     const outlines = Object.keys(WORLD_MAP.countries).map(function (code) {
       return WORLD_MAP.countries[code].d;
@@ -73,8 +84,19 @@ const MapView = (function () {
     el.ocean.setAttribute('height', WORLD_MAP.height);
     el.copyLeft.setAttribute('x', -WORLD_MAP.width);
     el.copyRight.setAttribute('x', WORLD_MAP.width);
+    view = { x: WORLD_MAP.width / 2, y: WORLD_MAP.height / 2, scale: MIN_SCALE };
 
-    el.svg.addEventListener('click', onMapClick);
+    el.svg.addEventListener('pointerdown', onPointerDown);
+    el.svg.addEventListener('pointermove', onPointerMove);
+    el.svg.addEventListener('pointerup', onPointerUp);
+    el.svg.addEventListener('pointercancel', onPointerUp);
+    el.svg.addEventListener('wheel', onWheel, { passive: false });
+    if (el.zoomIn) el.zoomIn.addEventListener('click', function () {
+      zoomBy(ZOOM_STEP);
+    });
+    if (el.zoomOut) el.zoomOut.addEventListener('click', function () {
+      zoomBy(1 / ZOOM_STEP);
+    });
     window.addEventListener('resize', function () {
       window.clearTimeout(resizeId);
       resizeId = window.setTimeout(refresh, 150);
@@ -180,29 +202,63 @@ const MapView = (function () {
     return { width: rect.width / fit, height: rect.height / fit };
   }
 
-  function zoomTo(centerX, centerY, scale) {
-    const view = viewport();
-    const halfWidth = view.width / (2 * scale);
-    const halfHeight = view.height / (2 * scale);
-    const y = halfHeight * 2 >= WORLD_MAP.height
-      ? WORLD_MAP.height / 2
-      : clamp(centerY, halfHeight, WORLD_MAP.height - halfHeight);
+  function setZoomTransition(animate) {
+    el.zoom.style.transition = animate ? '' : 'none';
+  }
+
+  function clampView() {
+    const frame = viewport();
+    const halfHeight = frame.height / (2 * view.scale);
+    if (halfHeight * 2 >= WORLD_MAP.height) view.y = WORLD_MAP.height / 2;
+    else view.y = clamp(view.y, halfHeight, WORLD_MAP.height - halfHeight);
+
+    // Keep the centre on the map; world copies cover the date line when needed.
+    const halfWidth = frame.width / (2 * view.scale);
+    if (halfWidth * 2 >= WORLD_MAP.width) view.x = WORLD_MAP.width / 2;
+    else view.x = clamp(view.x, halfWidth - WORLD_MAP.width * 0.25, WORLD_MAP.width - halfWidth + WORLD_MAP.width * 0.25);
+  }
+
+  function updateZoomControls() {
+    if (!el.zoomIn || !el.zoomOut) return;
+    el.zoomIn.disabled = !interactive || view.scale >= MAX_SCALE - 0.01;
+    el.zoomOut.disabled = !interactive || view.scale <= MIN_SCALE + 0.01;
+  }
+
+  function applyView(options) {
+    const settings = options || {};
+    clampView();
+    setZoomTransition(Boolean(settings.animate));
+    const frame = viewport();
+    const halfWidth = frame.width / (2 * view.scale);
+    const halfHeight = frame.height / (2 * view.scale);
 
     el.zoom.style.transform =
       'translate(' +
-      (WORLD_MAP.width / 2 - scale * centerX) + 'px, ' +
-      (WORLD_MAP.height / 2 - scale * y) + 'px) scale(' + scale + ')';
+      (WORLD_MAP.width / 2 - view.scale * view.x) + 'px, ' +
+      (WORLD_MAP.height / 2 - view.scale * view.y) + 'px) scale(' + view.scale + ')';
 
-    // A degree of slack, so the world view does not pay for copies it cannot show.
-    useWorldCopies(centerX - halfWidth < -30, centerX + halfWidth > WORLD_MAP.width + 30);
+    useWorldCopies(view.x - halfWidth < -30, view.x + halfWidth > WORLD_MAP.width + 30, settings.animate);
+    if (settings.animate) detailWhenClose(view.scale);
+    else setLandDetail(view.scale >= DETAIL_SCALE);
+    updateZoomControls();
+  }
+
+  function zoomTo(centerX, centerY, scale, options) {
+    view = { x: centerX, y: centerY, scale: clamp(scale, MIN_SCALE, MAX_SCALE) };
+    applyView(options || { animate: true });
   }
 
   /** Copies of the world sit either side of the original so views across the date line stay
    * whole. Drawing the world twice over is the most expensive thing the panel can do, and a
    * wide view never reaches past the date line anyway, so the switch waits until the zoom is
    * well under way: too late to cost anything, too early to be seen. */
-  function useWorldCopies(left, right) {
+  function useWorldCopies(left, right, animate) {
     window.clearTimeout(copyId);
+    if (!animate) {
+      el.map.classList.toggle('wrap-left', left);
+      el.map.classList.toggle('wrap-right', right);
+      return;
+    }
     copyId = window.setTimeout(function () {
       el.map.classList.toggle('wrap-left', left);
       el.map.classList.toggle('wrap-right', right);
@@ -212,11 +268,36 @@ const MapView = (function () {
   /** Scale that fits a box with room for its surroundings, capped so a tiny country
    * does not fill the panel with empty sea. */
   function scaleFor(box) {
-    const view = viewport();
+    const frame = viewport();
     const context = CONTEXT_DEGREES * pxPerDegree();
     const spanX = Math.max(box[2] * 1.5, context);
-    const spanY = Math.max(box[3] * 1.5, (context * view.height) / view.width);
-    return clamp(Math.min(view.width / spanX, view.height / spanY), 1, MAX_SCALE);
+    const spanY = Math.max(box[3] * 1.5, (context * frame.height) / frame.width);
+    return clamp(Math.min(frame.width / spanX, frame.height / spanY), MIN_SCALE, MAX_SCALE);
+  }
+
+  /** Zoom toward a map point so that point stays under the cursor / viewport centre. */
+  function zoomToward(anchor, factor) {
+    if (!ready || !interactive) return;
+    const next = clamp(view.scale * factor, MIN_SCALE, MAX_SCALE);
+    if (Math.abs(next - view.scale) < 0.001) return;
+    const focus = anchor || { x: view.x, y: view.y };
+    const ratio = view.scale / next;
+    view.x = focus.x - (focus.x - view.x) * ratio;
+    view.y = focus.y - (focus.y - view.y) * ratio;
+    view.scale = next;
+    applyView({ animate: false });
+  }
+
+  function zoomBy(factor) {
+    zoomToward({ x: view.x, y: view.y }, factor);
+  }
+
+  function onWheel(event) {
+    if (!interactive || !ready) return;
+    event.preventDefault();
+    const point = eventPoint(event);
+    if (!point) return;
+    zoomToward(point, event.deltaY < 0 ? ZOOM_STEP : 1 / ZOOM_STEP);
   }
 
   /* ---------- highlighting ---------- */
@@ -264,8 +345,7 @@ const MapView = (function () {
       pin(own[0] + own[2] / 2, own[1] + own[3] / 2, PIN_RADIUS / scale);
     });
 
-    zoomTo(centerX, centerY, scale);
-    detailWhenClose(scale);
+    zoomTo(centerX, centerY, scale, { animate: true });
     showing = { countries: list, caption: settings.caption };
     el.map.classList.add('located');
     el.caption.textContent =
@@ -289,13 +369,13 @@ const MapView = (function () {
     el.pick.setAttribute('d', '');
     el.pins.textContent = '';
     el.caption.textContent = idleCaption;
-    zoomTo(WORLD_MAP.width / 2, WORLD_MAP.height / 2, 1);
+    zoomTo(WORLD_MAP.width / 2, WORLD_MAP.height / 2, MIN_SCALE, { animate: false });
   }
 
   function refresh() {
     if (!ready) return;
     if (showing) show(showing.countries, { caption: showing.caption });
-    else zoomTo(WORLD_MAP.width / 2, WORLD_MAP.height / 2, 1);
+    else applyView({ animate: false });
   }
 
   function setIdleCaption(text) {
@@ -345,12 +425,68 @@ const MapView = (function () {
     return { x: mapped.x, y: mapped.y };
   }
 
-  function onMapClick(event) {
-    if (!clickHandler) return;
-    const target = event.target.closest('[data-code]');
+  function onPointerDown(event) {
+    if (!ready || event.button !== 0) return;
+    if (event.target.closest && event.target.closest('.map-tool')) return;
     const point = eventPoint(event);
     if (!point) return;
-    clickHandler({ code: target ? target.getAttribute('data-code') : null, x: point.x, y: point.y });
+
+    pointer = {
+      id: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      lastClientX: event.clientX,
+      lastClientY: event.clientY,
+      moved: false,
+      target: event.target,
+    };
+    try {
+      el.svg.setPointerCapture(event.pointerId);
+    } catch (err) {
+      /* some browsers reject capture on SVG; move/up still fire on the element */
+    }
+  }
+
+  function onPointerMove(event) {
+    if (!pointer || event.pointerId !== pointer.id) return;
+
+    const dx = event.clientX - pointer.lastClientX;
+    const dy = event.clientY - pointer.lastClientY;
+    pointer.lastClientX = event.clientX;
+    pointer.lastClientY = event.clientY;
+
+    const travel = Math.hypot(event.clientX - pointer.startClientX, event.clientY - pointer.startClientY);
+    if (!pointer.moved && travel < PAN_THRESHOLD) return;
+    pointer.moved = true;
+
+    if (!interactive || view.scale <= MIN_SCALE + 0.01) return;
+
+    const rect = el.svg.getBoundingClientRect();
+    const fit = Math.min(rect.width / WORLD_MAP.width, rect.height / WORLD_MAP.height);
+    if (!fit) return;
+    view.x -= dx / (fit * view.scale);
+    view.y -= dy / (fit * view.scale);
+    applyView({ animate: false });
+    el.map.classList.add('panning');
+  }
+
+  function onPointerUp(event) {
+    if (!pointer || event.pointerId !== pointer.id) return;
+    const wasPan = pointer.moved;
+    const target = pointer.target;
+    pointer = null;
+    el.map.classList.remove('panning');
+    try {
+      el.svg.releasePointerCapture(event.pointerId);
+    } catch (err) {
+      /* already released */
+    }
+    if (wasPan || !clickHandler) return;
+
+    const hit = target && target.closest ? target.closest('[data-code]') : null;
+    const point = eventPoint(event);
+    if (!point) return;
+    clickHandler({ code: hit ? hit.getAttribute('data-code') : null, x: point.x, y: point.y });
   }
 
   function enableClicks(handler) {
@@ -370,6 +506,19 @@ const MapView = (function () {
     if (ready) el.map.classList.toggle('locked', !on);
   }
 
+  /** Lets the player zoom and pan. Used by Locate; other games leave the map alone. */
+  function setInteractive(on) {
+    interactive = Boolean(on);
+    if (!ready) return;
+    el.map.classList.toggle('interactive', interactive);
+    if (el.tools) el.tools.hidden = !interactive;
+    if (!interactive) {
+      pointer = null;
+      el.map.classList.remove('panning');
+    }
+    updateZoomControls();
+  }
+
   return {
     init: init,
     show: show,
@@ -380,6 +529,7 @@ const MapView = (function () {
     enableClicks: enableClicks,
     disableClicks: disableClicks,
     setClickable: setClickable,
+    setInteractive: setInteractive,
     centerOf: centerOf,
     distanceKm: distanceKm,
     hasShape: hasShape,

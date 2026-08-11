@@ -60,15 +60,18 @@
     idleCaption: 'Click the country on the map',
     missedTitle: 'Countries to review',
     hint:
-      'Click anywhere on the map to answer, then <kbd>Space</kbd> for the next country. ' +
+      'Click the map to answer, then <kbd>Space</kbd> for the next country. ' +
+      'Scroll or use <kbd>+</kbd>/<kbd>−</kbd> to zoom; drag to pan when zoomed in. ' +
       'Countries too small to click have a marker circle around them.',
 
     onEnter: function (api) {
       ui = api;
       api.map.enableClicks(onClick);
+      api.map.setInteractive(true);
     },
 
     onExit: function () {
+      MapView.setInteractive(false);
       MapView.disableClicks();
     },
 

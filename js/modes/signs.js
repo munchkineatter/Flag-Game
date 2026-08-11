@@ -1,21 +1,22 @@
-/* Road signs: name the country from the way the sign is drawn.
+/* Road signs: name the design, then see who uses it.
  *
- * The question is a sign design and the answers are countries, so this game
- * builds its own tiles rather than letting the engine draw them from the pool.
- * Wrong answers come from the sign's own contrast list, which keeps them
- * genuinely wrong: a yellow diamond is never offered against another yellow
- * diamond country. */
+ * The question is only the picture. Naming the design is the answer; the map
+ * and the country list under it are the payoff. After you answer, each tile
+ * also shows what that design looks like, so the wrong options teach you too. */
 
 (function () {
   'use strict';
 
   const COMMONS = 'https://commons.wikimedia.org/wiki/Special:FilePath/';
   const IMAGE_WIDTH = 400;
+  const THUMB_WIDTH = 160;
 
   const byCode = {};
   COUNTRIES.forEach(function (country) {
     byCode[country.code] = country;
   });
+
+  const byId = {};
 
   function placesOf(codes) {
     return codes
@@ -26,12 +27,11 @@
   }
 
   const signs = SIGNS.filter(function (sign) {
-    return placesOf(sign.countries).length > 0 && placesOf(sign.contrast).length >= 3;
+    return placesOf(sign.countries).length > 0;
   });
 
-  // A sign belongs to every region that uses it, so filtering to Europe keeps
-  // the European answer for a design that is also used elsewhere.
   signs.forEach(function (sign) {
+    byId[sign.id] = sign;
     sign.places = placesOf(sign.countries);
     sign.region = sign.places[0].region;
     sign.regions = sign.places
@@ -43,75 +43,127 @@
       });
   });
 
-  function imageUrl(sign) {
-    return COMMONS + encodeURIComponent(sign.image) + '?width=' + IMAGE_WIDTH;
+  function imageUrl(sign, width) {
+    return COMMONS + encodeURIComponent(sign.image) + '?width=' + (width || IMAGE_WIDTH);
+  }
+
+  function warmImage(sign) {
+    if (sign && sign.image) new Image().src = imageUrl(sign, THUMB_WIDTH);
   }
 
   /** The picture if it loads, the drawn version if it does not. */
-  function signFigure(sign) {
+  function signFigure(sign, options) {
+    const settings = options || {};
     const frame = document.createElement('div');
-    frame.className = 'sign-art-frame';
+    frame.className = settings.thumb ? 'sign-option-thumb' : 'sign-art-frame';
 
+    const label = sign.label || sign.name;
     if (!sign.image) {
-      frame.appendChild(SignArt.draw(sign.art, { label: sign.name }));
+      frame.appendChild(SignArt.draw(sign.art, { label: label }));
       return frame;
     }
 
     const image = document.createElement('img');
-    image.className = 'sign-photo';
-    image.alt = sign.name + ' sign';
-    image.loading = 'eager';
-    image.src = imageUrl(sign);
+    image.className = settings.thumb ? 'sign-option-photo' : 'sign-photo';
+    image.alt = label;
+    image.loading = settings.thumb ? 'lazy' : 'eager';
+    image.src = imageUrl(sign, settings.thumb ? THUMB_WIDTH : IMAGE_WIDTH);
     image.addEventListener('error', function () {
       frame.textContent = '';
-      frame.appendChild(SignArt.draw(sign.art, { label: sign.name }));
+      frame.appendChild(SignArt.draw(sign.art, { label: label }));
     });
     frame.appendChild(image);
     return frame;
   }
 
-  let plate = null;
-
   function signPlate(sign) {
-    plate = document.createElement('div');
+    const plate = document.createElement('div');
     plate.className = 'sign-plate';
-
-    const tells = document.createElement('p');
-    tells.className = 'sign-tells';
-    tells.hidden = true;
-
-    plate.append(signFigure(sign), tells);
+    plate.appendChild(signFigure(sign));
     return plate;
   }
 
-  function captionFor(sign) {
-    const places = sign.places;
-    if (places.length <= 3) {
-      return sign.name + ' \u00b7 ' + places.map(function (place) {
-        return place.name;
-      }).join(', ');
+  function clearPlaces() {
+    const list = document.getElementById('places-list');
+    const note = document.getElementById('places-note');
+    if (list) {
+      list.textContent = '';
+      list.hidden = true;
     }
-    return sign.name + ' \u00b7 this design is used in ' + places.length + ' countries';
+    if (note) {
+      note.textContent = '';
+      note.hidden = true;
+    }
+  }
+
+  /** Written list under the map, grouped by region when the design spans many. */
+  function showPlaces(sign) {
+    const list = document.getElementById('places-list');
+    const note = document.getElementById('places-note');
+    if (!list || !note) return;
+
+    list.textContent = '';
+    note.textContent = sign.tells;
+    note.hidden = false;
+
+    const byRegion = {};
+    sign.places.forEach(function (place) {
+      if (!byRegion[place.region]) byRegion[place.region] = [];
+      byRegion[place.region].push(place.name);
+    });
+
+    const regions = Object.keys(byRegion).sort();
+    if (regions.length === 1 && byRegion[regions[0]].length <= 8) {
+      const item = document.createElement('li');
+      item.textContent = byRegion[regions[0]].join(', ');
+      list.appendChild(item);
+    } else {
+      regions.forEach(function (region) {
+        const item = document.createElement('li');
+        const head = document.createElement('strong');
+        head.textContent = region;
+        item.append(head, document.createTextNode(' \u2014 ' + byRegion[region].slice().sort().join(', ')));
+        list.appendChild(item);
+      });
+    }
+
+    list.hidden = false;
+  }
+
+  /** Put each option's artwork on its tile so the wrong answers teach their look too. */
+  function revealOptionArt(question, api) {
+    question.options.forEach(function (option, index) {
+      const tile = api.tiles[index];
+      if (!tile) return;
+      const body = tile.querySelector('.tile-body');
+      if (!body || body.querySelector('.sign-option-thumb')) return;
+      body.insertBefore(signFigure(option, { thumb: true }), body.firstChild);
+    });
   }
 
   GameEngine.register({
     id: 'signs',
     title: 'Road signs',
-    blurb: 'Name the country from the sign design',
+    blurb: 'Name the sign design, then see who uses it',
     trains: 'Sign conventions',
     layout: 'tiles',
-    tileStyle: 'text',
-    promptLabel: 'Which country uses this design',
+    tileStyle: 'sign',
+    promptLabel: 'What type of sign is this',
     nextLabel: 'Next sign',
     idleCaption: 'Answer to see who uses this design',
     missedTitle: 'Designs to review',
     revealNames: false,
     hint:
       'Press <kbd>1</kbd>–<kbd>4</kbd> to answer, <kbd>Space</kbd> for the next sign. ' +
-      'Hard mode draws the wrong answers from the same part of the world.',
+      'Hard mode draws the wrong answers from designs that look alike. ' +
+      'After you answer, each option shows its sign so you can compare.',
 
-    keyOf: function (item) {
-      return item.id || item.code;
+    keyOf: function (sign) {
+      return sign.id;
+    },
+
+    labelOf: function (sign) {
+      return sign.label || sign.name;
     },
 
     pool: function (state) {
@@ -122,86 +174,74 @@
       return pool.length >= GameEngine.util.optionCount ? pool : signs;
     },
 
-    buildOptions: function (sign, state) {
-      const shuffle = GameEngine.util.shuffle;
-
-      let answers = sign.places;
-      if (state.region !== 'All') {
-        const local = answers.filter(function (place) {
-          return place.region === state.region;
-        });
-        if (local.length) answers = local;
-      }
-      const correct = GameEngine.util.sample(answers);
-
-      // Hard mode, and any region filter, keep the wrong answers nearby so the
-      // sign has to be read rather than guessed from the odd one out.
-      const wrong = placesOf(sign.contrast);
-      const focus = state.region !== 'All' ? state.region : state.difficulty === 'hard' ? correct.region : null;
-      const near = focus
-        ? wrong.filter(function (place) {
-            return place.region === focus;
-          })
-        : [];
-
-      const picked = [];
-      shuffle(near.length >= 3 ? near : wrong).concat(shuffle(wrong)).forEach(function (place) {
-        if (picked.length >= 3) return;
-        if (place.code === correct.code) return;
-        if (picked.indexOf(place) !== -1) return;
-        picked.push(place);
-      });
-
-      return [correct].concat(picked);
+    hardPool: function (target) {
+      return (target.confusable || [])
+        .map(function (id) {
+          return byId[id];
+        })
+        .filter(Boolean);
     },
 
-    isCorrect: function (option, question) {
-      return question.target.countries.indexOf(option.code) !== -1;
+    widePool: function () {
+      return signs;
     },
 
     renderPrompt: function (question, api) {
-      api.setPrompt(question.target.name);
+      clearPlaces();
+      // Leave the heading empty until they answer — putting the name here gives it away.
+      api.setPrompt('');
       api.showMedia(signPlate(question.target));
+      // Warm the other options so their examples are ready the moment you answer.
+      question.options.forEach(warmImage);
     },
 
-    renderOption: function (body, country) {
+    renderOption: function (body, sign) {
       const label = document.createElement('span');
       label.className = 'tile-text';
-      label.textContent = country.name;
+      label.textContent = sign.label || sign.name;
       body.appendChild(label);
     },
 
     preload: function (question) {
-      if (question.target.image) new Image().src = imageUrl(question.target);
+      warmImage(question.target);
+      if (question.options) question.options.forEach(warmImage);
     },
 
     reveal: function (question, result, api) {
       const sign = question.target;
-      const tells = plate && plate.querySelector('.sign-tells');
-      if (tells) {
-        tells.textContent = sign.tells;
-        tells.hidden = false;
+      api.setPrompt(sign.label || sign.name);
+      revealOptionArt(question, api);
+      api.map.show(sign.places, {
+        caption:
+          sign.places.length === 1
+            ? 'Used in ' + sign.places[0].name
+            : 'Used in ' + sign.places.length + ' countries',
+      });
+      showPlaces(sign);
+
+      // The tell and country list grow the map column; keep Next on screen.
+      if (api.next && api.next.scrollIntoView) {
+        window.requestAnimationFrame(function () {
+          api.next.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        });
       }
 
-      api.map.show(sign.places, { caption: captionFor(sign) });
-
-      if (result.correct) return { text: 'Correct \u2014 ' + result.picked.name + ' uses this design' };
-
-      const answer = question.options.filter(function (option) {
-        return sign.countries.indexOf(option.code) !== -1;
-      })[0];
-      return { text: result.picked.name + ' does not use this design. ' + answer.name + ' does.' };
+      return result.correct
+        ? { text: 'Correct \u2014 ' + (sign.label || sign.name) }
+        : { text: 'That is ' + (result.picked.label || result.picked.name) + '. This is ' + (sign.label || sign.name) + '.' };
     },
+
+    onExit: clearPlaces,
 
     missedCard: function (sign) {
       const item = document.createElement('div');
       item.className = 'missed-card missed-card-sign';
 
-      const art = SignArt.draw(sign.art, { label: sign.name });
+      const art = SignArt.draw(sign.art, { label: sign.label || sign.name });
       art.classList.add('missed-sign-art');
 
       const label = document.createElement('span');
-      label.textContent = sign.name + ' \u00b7 ' + sign.places[0].name;
+      label.textContent = sign.label || sign.name;
 
       item.append(art, label);
       return item;

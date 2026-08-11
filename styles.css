@@ -442,6 +442,31 @@ body {
   flex: 0 0 auto;
 }
 
+/* Room for a sign thumbnail above the label once the answer is revealed. */
+.board[data-tiles="sign"] {
+  aspect-ratio: 2.1;
+  flex: 0 0 auto;
+}
+
+.board[data-tiles="sign"] .tile {
+  grid-template-rows: minmax(0, 1fr);
+  align-items: stretch;
+}
+
+.board[data-tiles="sign"] .tile-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+}
+
+.board[data-tiles="sign"] .tile-text {
+  padding: 0;
+  font-size: 0.82rem;
+}
+
 .tile {
   position: relative;
   display: grid;
@@ -535,7 +560,8 @@ body {
 }
 
 /* Games whose tiles already carry the name leave this row out altogether. */
-.board[data-tiles="text"] .tile-name:empty {
+.board[data-tiles="text"] .tile-name:empty,
+.board[data-tiles="sign"] .tile-name:empty {
   display: none;
 }
 
@@ -617,6 +643,7 @@ body {
 /* Map */
 
 .map {
+  position: relative;
   margin: 0;
   min-height: 0;
   flex: 0 1 auto;
@@ -729,6 +756,57 @@ body {
 }
 
 .map.locked.clickable {
+  cursor: default;
+}
+
+.map.interactive {
+  touch-action: none;
+}
+
+.map.interactive.clickable:not(.locked) {
+  cursor: crosshair;
+}
+
+.map.interactive.panning,
+.map.interactive.panning.clickable {
+  cursor: grabbing;
+}
+
+.map-tools {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.map-tools[hidden] {
+  display: none;
+}
+
+.map-tool {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(12, 18, 35, 0.88);
+  color: var(--text);
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+}
+
+.map-tool:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.map-tool:disabled {
+  opacity: 0.35;
   cursor: default;
 }
 
@@ -1002,8 +1080,81 @@ kbd {
   font-family: "Helvetica Neue", Arial, sans-serif;
 }
 
+.sign-option-thumb {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  flex: 0 0 auto;
+  min-height: 52px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  background: #f3f6fc;
+}
+
+.sign-option-thumb .sign-art,
+.sign-option-photo {
+  display: block;
+  width: auto;
+  height: 48px;
+  max-width: 100%;
+  object-fit: contain;
+}
+
+.tile.correct .sign-option-thumb {
+  box-shadow: inset 0 0 0 2px var(--good);
+}
+
+.tile.wrong .sign-option-thumb {
+  box-shadow: inset 0 0 0 2px var(--bad);
+}
+
 .sign-plate .sign-tells {
   width: 100%;
+}
+
+.places-note {
+  margin: 0;
+  padding: 0 4px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.places-note[hidden],
+.places-list[hidden] {
+  display: none;
+}
+
+.places-list {
+  margin: 0;
+  padding: 0 4px 0 1.1rem;
+  max-height: 7.5rem;
+  overflow-y: auto;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+.places-list li + li {
+  margin-top: 4px;
+}
+
+.places-list strong {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+/* Road signs grows a country list under the map; scroll that column and keep Next pinned. */
+.stage[data-game="signs"] .column-map {
+  overflow-y: auto;
+  justify-content: flex-start;
+}
+
+.stage[data-game="signs"] .column-map .btn-next {
+  flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
 }
 
 /* Scripts a stock desktop font stack tends to miss. The Noto families are loaded

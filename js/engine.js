@@ -525,6 +525,7 @@ const GameEngine = (function () {
     el.board.dataset.tiles = game.tileStyle || 'text';
     el.board.hidden = game.layout !== 'tiles';
     el.stage.dataset.layout = game.layout;
+    el.stage.dataset.game = game.id;
     el.gameTitle.textContent = game.title;
     el.gameBlurb.textContent = game.blurb;
     MapView.setIdleCaption(game.idleCaption);

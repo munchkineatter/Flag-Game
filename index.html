@@ -134,8 +134,15 @@
               <use class="map-copy map-copy-right" id="map-copy-right" href="#map-world"></use>
             </g>
           </svg>
+          <div class="map-tools" id="map-tools" hidden>
+            <button type="button" class="map-tool" id="map-zoom-in" aria-label="Zoom in" title="Zoom in">+</button>
+            <button type="button" class="map-tool" id="map-zoom-out" aria-label="Zoom out" title="Zoom out">&minus;</button>
+          </div>
           <figcaption class="map-caption" id="map-caption">Answer to see where it is</figcaption>
         </figure>
+
+        <p class="places-note" id="places-note" hidden></p>
+        <ul class="places-list" id="places-list" hidden></ul>
 
         <p class="feedback" id="feedback" role="status" aria-live="polite">&nbsp;</p>
 
